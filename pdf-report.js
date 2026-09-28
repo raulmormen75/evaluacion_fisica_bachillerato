@@ -2,13 +2,22 @@
 (function(root){
   'use strict';
   let assetsPromise;
+  async function graphImage(){
+    const response=await fetch('assets/grafica-posicion-tiempo.svg');if(!response.ok)throw new Error('No se pudo cargar la gráfica');
+    const svg=await response.text(),image=new Image();
+    image.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    await image.decode();
+    const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;
+    canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+    return canvas.toDataURL('image/png');
+  }
   function loadAssets(){
-    if(!assetsPromise)assetsPromise=Promise.all(['assets/fonts/PlusJakartaSans-Regular.ttf','assets/fonts/PlusJakartaSans-Bold.ttf','assets/ifr-shield.jpg'].map(async url=>{
+    if(!assetsPromise)assetsPromise=Promise.all([...['assets/fonts/PlusJakartaSans-Regular.ttf','assets/fonts/PlusJakartaSans-Bold.ttf','assets/ifr-shield.jpg'].map(async url=>{
       const response=await fetch(url);if(!response.ok)throw new Error('No se pudo cargar '+url);
       const bytes=new Uint8Array(await response.arrayBuffer());let binary='';
       for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
       return btoa(binary);
-    })).then(([regular,bold,shield])=>({regular,bold,shield})).catch(error=>{assetsPromise=null;throw error;});
+    }),graphImage()]).then(([regular,bold,shield,graph])=>({regular,bold,shield,graph})).catch(error=>{assetsPromise=null;throw error;});
     return assetsPromise;
   }
   function build({jsPDF,state,questions,topics,scoring,totals,assets}){
@@ -56,12 +65,14 @@
       const response=state.answers[q.id],score=scoring.grade(q,response),correct=score===1;
       const color=correct?green:score>0?amber:red,background=correct?'#EAF8EF':score>0?'#FFF5DD':'#FFF0F2';
       const title=wrap(topics[q.topic-1],111,10,true),prompt=wrap(q.prompt,width-17,9.5,true);
+      const support=[...(q.table||[]).map(row=>wrap(row.join('  |  '),width-17,8.5)),...(q.formulas||[]).map(formula=>wrap('Fórmula: '+formula.text,width-17,8.5))].flat();
+      const graphHeight=q.image&&assets.graph?60:0,graphWidth=graphHeight*640/360;
       const rows=(q.type==='choice'?[{label:'Respuesta',actual:response,expected:q.answer,correct}]:q.parts.map(part=>({label:part.label,actual:String(response?.[part.id]??'')+(part.unit?' '+part.unit:''),expected:String(part.answer)+(part.unit?' '+part.unit:''),correct:scoring.partCorrect(part,response?.[part.id])}))).map(row=>({
         label:wrap(row.label,width-17,8.5,true),actual:wrap('Tu respuesta: '+row.actual,width-17,9),expected:row.correct?[]:wrap('Respuesta correcta: '+row.expected,width-17,9)
       }));
       const explanation=correct?[]:wrap(q.explain,width-17,8.5);
       const header=13+title.length*4.5;
-      const height=header+prompt.length*5+7+rows.reduce((sum,row)=>sum+(row.label.length+row.actual.length+row.expected.length)*4.5+5,0)+explanation.length*4.7+(explanation.length?5:0)+11;
+      const height=header+prompt.length*5+7+(graphHeight?graphHeight+4:0)+support.length*4.5+(support.length?5:0)+rows.reduce((sum,row)=>sum+(row.label.length+row.actual.length+row.expected.length)*4.5+5,0)+explanation.length*4.7+(explanation.length?5:0)+11;
       if(y+height>bottom)page('Detalle de tus respuestas');
       box(left,y,width,height,'#FFFFFF',line,3);doc.setFillColor(color);doc.roundedRect(left,y,1.3,height,.6,.6,'F');
       box(left+6,y+5,10,9,background,null,2);write(index+1,left+8.5,y+11,8,true,color);
@@ -69,6 +80,8 @@
       write(correct?'Correcto':score>0?'Parcial':'Incorrecto',left+144,y+10,8,true,color);
       let top=y+header;
       prompt.forEach(lineText=>{write(lineText,left+8,top,9.5,true);top+=5;});top+=4;
+      if(graphHeight){doc.addImage(assets.graph,'PNG',left+8,top,graphWidth,graphHeight);top+=graphHeight+4;}
+      support.forEach(lineText=>{write(lineText,left+8,top,8.5,false,navy);top+=4.5;});if(support.length)top+=5;
       rows.forEach(row=>{
         row.label.forEach(lineText=>{write(lineText,left+8,top,8.5,true,navy);top+=4.5;});
         row.actual.forEach(lineText=>{write(lineText,left+8,top,9);top+=4.5;});

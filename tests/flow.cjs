@@ -6,7 +6,7 @@ const path=require('node:path');
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
 const key='ifr-physics-exam-v1';
-const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.jpg':'image/jpeg','.ttf':'font/ttf','.json':'application/json'};
+const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.jpg':'image/jpeg','.svg':'image/svg+xml','.ttf':'font/ttf','.json':'application/json'};
 const server=http.createServer((request,response)=>{
   const relative=decodeURIComponent(new URL(request.url,'http://127.0.0.1').pathname).replace(/^\/+/, '')||'index.html';
   const file=path.resolve(root,relative);
@@ -39,7 +39,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await page.getByRole('button',{name:'Iniciar prueba'}).click();
     await page.waitForTimeout(350);
     const desktopQuestionScreenshot=path.join(os.tmpdir(),'ifr-fisica-desktop-question.png');await page.screenshot({path:desktopQuestionScreenshot});
-    const initial=await session(page);assert.equal(initial.ids.length,27);
+    const initial=await session(page);assert.equal(initial.ids.length,27);assert.equal(initial.version,3);
     assert.equal(await page.locator('#restart').count(),0);
     await page.locator('#next').click();assert.equal((await session(page)).index,0);
     assert.match(await page.locator('#notice').innerText(),/respuesta|partes/);
@@ -53,9 +53,19 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
       assert.deepEqual((await session(page)).orderings,initial.orderings);
       assert.equal(String((await session(page)).answers[first.id][part.id]),String(part.answer));
     }
-    let desktopFrictionScreenshot;
+    let desktopFrictionScreenshot,desktopGraphScreenshot;
     for(let index=0;index<27;index++){
       const q=await current(page);
+      if(q.id==='v-grafica'){
+        await page.locator('.question-figure img').evaluate(image=>image.decode());
+        assert.equal(await page.locator('.question-figure img').evaluate(image=>image.complete&&image.naturalWidth===640),true);
+        assert.equal(await page.locator('.choices .choice').count(),4);
+        await noOverflow(page);
+        desktopGraphScreenshot=path.join(os.tmpdir(),'ifr-fisica-grafica-escritorio.png');
+        await page.screenshot({path:desktopGraphScreenshot,fullPage:true});
+      }
+      if(q.id==='v-pendiente')assert.equal(await page.locator('.question-formula math mfrac').count(),1);
+      if(q.id==='v-tabla')assert.equal(await page.locator('.question-table td').count(),6);
       if(q.id==='v-referencia'){
         assert.equal(await page.locator('.force-diagram').count(),4);
         assert.equal(await page.locator('.force-diagram .force-box-label').count(),8);
@@ -107,6 +117,25 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
     assert.equal(await mobilePage.locator('.force-diagram').count(),4,JSON.stringify(await mobilePage.evaluate(key=>{const saved=JSON.parse(localStorage.getItem(key));return {index:saved?.index,id:saved?.ids?.[saved.index],version:saved?.version,prompt:document.querySelector('.prompt')?.textContent,heading:document.querySelector('h1')?.textContent};},key)));
     const mobileFrictionScreenshot=path.join(os.tmpdir(),'ifr-fisica-friccion-movil.png');await mobilePage.screenshot({path:mobileFrictionScreenshot,fullPage:true});
+    await mobilePage.evaluate(key=>{
+      const state=JSON.parse(localStorage.getItem(key)),bank=window.QUESTIONS;
+      state.index=state.ids.indexOf('v-grafica');
+      state.ids.slice(0,state.index).forEach(id=>{const q=bank.find(item=>item.id===id);state.answers[id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+      sessionStorage.setItem('ifr-test-seed',JSON.stringify(state));
+    },key);
+    await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
+    await mobilePage.locator('.question-figure img').evaluate(image=>image.decode());
+    assert.equal(await mobilePage.locator('.question-figure img').evaluate(image=>image.naturalWidth===640),true);
+    const mobileGraphScreenshot=path.join(os.tmpdir(),'ifr-fisica-grafica-movil.png');await mobilePage.screenshot({path:mobileGraphScreenshot,fullPage:true});
+    await mobilePage.evaluate(key=>{
+      const state=JSON.parse(localStorage.getItem(key)),bank=window.QUESTIONS;
+      state.index=state.ids.indexOf('v-frenado');
+      state.ids.slice(0,state.index).forEach(id=>{const q=bank.find(item=>item.id===id);state.answers[id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+      sessionStorage.setItem('ifr-test-seed',JSON.stringify(state));
+    },key);
+    await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
+    assert.equal(await mobilePage.locator('.question-formula math').count(),3);
+    const mobileFormulaScreenshot=path.join(os.tmpdir(),'ifr-fisica-formulas-movil.png');await mobilePage.screenshot({path:mobileFormulaScreenshot,fullPage:true});
     await mobilePage.evaluate(snapshot=>sessionStorage.setItem('ifr-test-seed',JSON.stringify(snapshot)),complete);
     await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
     assert.equal(await mobilePage.locator('.review').count(),27);
@@ -138,11 +167,34 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await legacyPage.getByRole('button',{name:'Iniciar otro intento'}).first().click();
     await legacyPage.locator('#name').fill('Alumno nuevo');await legacyPage.locator('#group').fill('Tercer cuatrimestre A');
     await legacyPage.getByRole('button',{name:'Iniciar prueba'}).click();
-    assert.equal((await session(legacyPage)).version,2);
+    assert.equal((await session(legacyPage)).version,3);
     await legacyContext.close();
+    const v2Context=await browser.newContext({viewport:{width:1280,height:800}});
+    const v2Page=await v2Context.newPage();v2Page.on('pageerror',error=>errors.push(error.message));
+    await v2Page.goto(url,{waitUntil:'networkidle'});
+    await v2Page.addInitScript(storageKey=>{const seed=sessionStorage.getItem('ifr-test-seed');if(seed)localStorage.setItem(storageKey,seed);},key);
+    await v2Page.evaluate(key=>{
+      const bank=window.V2_QUESTIONS,orderings={};
+      bank.forEach(q=>{if(q.type==='choice')orderings[q.id]=q.choices;else q.parts.filter(part=>part.kind==='choice').forEach(part=>orderings[q.id+':'+part.id]=part.choices);});
+      const ids=bank.map(q=>q.id),index=ids.indexOf('v-grafica'),answers={};
+      ids.slice(0,index).forEach(id=>{const q=bank.find(item=>item.id===id);answers[id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+      sessionStorage.setItem('ifr-test-seed',JSON.stringify({version:2,name:'Alumno versión anterior',group:'Tercer cuatrimestre A',started:new Date().toISOString(),ids,answers,orderings,index,readyToSubmit:false,done:false}));
+    },key);
+    await v2Page.reload({waitUntil:'networkidle'});
+    assert.match(await v2Page.locator('.prompt').innerText(),/línea permanece horizontal/);
+    assert.equal(await v2Page.locator('.question-figure img').count(),0);
+    await v2Page.locator('[data-choice]').filter({hasText:'Permanece en reposo respecto al eje elegido'}).click();
+    await v2Page.locator('#next').click();
+    assert.match(await v2Page.locator('.prompt').innerText(),/pendiente/);
+    assert.equal(await v2Page.locator('[data-choice]').count(),4);
+    await v2Page.evaluate(key=>sessionStorage.setItem('ifr-test-seed',localStorage.getItem(key)),key);
+    await v2Page.reload({waitUntil:'networkidle'});
+    assert.equal((await session(v2Page)).version,2);
+    assert.match(await v2Page.locator('.prompt').innerText(),/pendiente/);
+    await v2Context.close();
     assert.deepEqual(errors,[]);
     console.log('PASS: recorrido completo, bloqueo, persistencia, migración, diagramas de fricción, PDF, escritorio y móvil.');
-    console.log(JSON.stringify({pdfPath,desktopIntroScreenshot,desktopQuestionScreenshot,desktopFrictionScreenshot,desktopResultScreenshot,introScreenshot,questionScreenshot,mobileFrictionScreenshot,resultScreenshot,pdfBytes:bytes.length}));
+    console.log(JSON.stringify({pdfPath,desktopIntroScreenshot,desktopQuestionScreenshot,desktopFrictionScreenshot,desktopGraphScreenshot,desktopResultScreenshot,introScreenshot,questionScreenshot,mobileFrictionScreenshot,mobileGraphScreenshot,mobileFormulaScreenshot,resultScreenshot,pdfBytes:bytes.length}));
     await desktop.close();await mobile.close();
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close();});

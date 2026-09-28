@@ -12,12 +12,12 @@ assert.deepEqual([1,2,3].map(topic=>bank.filter(q=>q.topic===topic).length),[9,8
 const numerical={
   'm-precision':[.04,.2],'m-promedio':[3.2],'m-rapidez':[1850,1.85],'m-camino':[15,7],
   'm-suma':[4,3,5],'m-resta':[-4,3,5],
-  'v-tabla':[3,32],'v-negativa':[24,19],'v-tiempo':[18,6],
+  'v-pendiente':[-2],'v-tabla':[3,32],'v-negativa':[24,19],'v-tiempo':[18,6],
   'v-aceleracion':[8,20],'v-frenado':[6,54,59],'v-encuentro':[4,8],
   'f-empujes':[12,2],'f-pelota':[4],'f-frenado':[-2,-100],
   'f-mochila':[70,70],'f-cubeta':[30,36,36],'f-cubeta-inversa':[50,10,2]
 };
-assert.equal(Object.keys(numerical).length,18);
+assert.equal(Object.keys(numerical).length,19);
 for(const q of bank){
   assert.ok(q.source&&q.prompt&&q.explain);
   assert.ok(!/resorte|rampa|trabajo mecánico|energía cinética/i.test(q.prompt));
@@ -53,10 +53,22 @@ assert.equal(friction.topic,3);
 assert.equal(friction.visuals.length,friction.choices.length);
 assert.deepEqual(Array.from(friction.visuals[0].friction),[6,9]);
 assert.equal(friction.visuals[0].direction,'left');
+const graph=bank.find(q=>q.id==='v-grafica');
+assert.ok(graph.image?.src&&fs.existsSync(path.join(root,graph.image.src)));
+assert.equal(graph.answer,'No cambia de posición.');
+assert.deepEqual(Array.from(bank.find(q=>q.id==='v-tabla').table[1]),['Posición (m)','2','11','20']);
+for(const id of ['v-pendiente','v-tabla','v-negativa','v-tiempo','v-aceleracion','v-frenado'])assert.ok(bank.find(q=>q.id===id).formulas?.length,id);
+const v2=context.window.V2_QUESTIONS;
+assert.equal(v2.length,bank.length);
+assert.equal(v2.find(q=>q.id==='v-pendiente').type,'choice');
+assert.equal(v2.find(q=>q.id==='v-grafica').image,null);
+assert.equal(v2.find(q=>q.id==='v-tabla').table,null);
+assert.equal(v2.find(q=>q.id==='f-primera').answer,'0 N');
 const legacy=context.window.LEGACY_QUESTIONS;
 assert.equal(legacy.length,bank.length);
 assert.equal(legacy.find(q=>q.id==='m-precision').type,'choice');
 assert.equal(legacy.find(q=>q.id==='m-ruta').type,'parts');
 assert.equal(legacy.find(q=>q.id==='v-referencia').topic,2);
+assert.equal(legacy.find(q=>q.id==='v-pendiente').type,'choice');
 assert.equal(scoring.grade(legacy.find(q=>q.id==='m-sentido'),'Su sentido'),1);
 console.log('PASS: 27 reactivos, cobertura, resultados independientes, variantes válidas y crédito parcial.');

@@ -68,6 +68,18 @@ button:disabled,button[aria-disabled="true"]{opacity:1;color:#7d8295;background:
 .exam-flow h2{font-size:26px;line-height:1.3;letter-spacing:-.9px;margin:0 0 25px}
 #questionTitle:focus{outline:0}
 .prompt{font-size:19px;font-weight:500;color:var(--ink);line-height:1.65;margin:0 0 24px;overflow-wrap:anywhere}
+.question-figure{max-width:640px;margin:0 0 22px}
+.question-figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
+.question-table-wrap{max-width:480px;overflow-x:auto;margin:0 0 20px}
+.question-table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;text-align:center}
+.question-table th,.question-table td{border-bottom:1px solid var(--line);padding:10px 8px}
+.question-table th{text-align:left;white-space:nowrap;color:var(--navy);font-weight:700}
+.question-formulas{margin:0 0 24px;color:var(--navy)}
+.question-formulas>strong{display:block;font-size:12px;margin-bottom:8px}
+.question-formula{overflow-x:auto;padding:4px 0}
+.question-formula math{font-size:20px}
+.review .question-figure{max-width:480px;margin-bottom:16px}
+.review .question-formula math{font-size:17px}
 .choices{gap:10px}
 .choice{font-size:16px;font-weight:500;min-height:62px;border:1px solid #d9deeb;border-radius:13px;padding:13px 15px;gap:13px;background:#fff}
 .choice b{display:grid;place-items:center;width:29px;height:29px;border:0;border-radius:8px;background:#f0f2f7;color:#68708b;font-size:11px;padding:0}

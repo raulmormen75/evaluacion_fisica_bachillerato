@@ -1,14 +1,14 @@
 (function(){
   'use strict';
   const app=document.getElementById('app');
-  const S=window.ExamScoring, NEW_BANK=window.QUESTIONS, LEGACY_BANK=window.LEGACY_QUESTIONS, TOPICS=window.TOPICS;
-  const KEY='ifr-physics-exam-v1', VERSION=2, TOTAL=NEW_BANK.length;
+  const S=window.ExamScoring, NEW_BANK=window.QUESTIONS, V2_BANK=window.V2_QUESTIONS, LEGACY_BANK=window.LEGACY_QUESTIONS, TOPICS=window.TOPICS;
+  const KEY='ifr-physics-exam-v1', VERSION=3, TOTAL=NEW_BANK.length;
   if('scrollRestoration' in history)history.scrollRestoration='manual';
   let BANK=NEW_BANK,byId=new Map(NEW_BANK.map(q=>[q.id,q]));
   let state=null,noticeTimer=null,persisted=true;
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const format=value=>Number(value).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
-  function selectBank(version){BANK=version===1?LEGACY_BANK:NEW_BANK;byId=new Map(BANK.map(q=>[q.id,q]));}
+  function selectBank(version){BANK=version===1?LEGACY_BANK:version===2?V2_BANK:NEW_BANK;byId=new Map(BANK.map(q=>[q.id,q]));}
   function shuffle(items){
     const result=[...items];
     for(let i=result.length-1;i>0;i--){
@@ -35,7 +35,7 @@
   function restore(){
     try{
       const saved=JSON.parse(localStorage.getItem(KEY));
-      if(!saved||![1,VERSION].includes(saved.version))return;
+      if(!saved||![1,2,VERSION].includes(saved.version))return;
       selectBank(saved.version);
       if(!Array.isArray(saved.ids)||saved.ids.length!==TOTAL||
         new Set(saved.ids).size!==TOTAL||!saved.ids.every(id=>byId.has(id))||
@@ -96,11 +96,32 @@
     }).join('');
     return `<svg class="force-diagram" viewBox="0 0 360 164" role="img" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">${stages}</svg>`;
   }
+  const sub=(letter,index)=>`<msub><mi>${letter}</mi><mi>${index}</mi></msub>`;
+  const vf=sub('v','f'),vi=sub('v','i'),xf=sub('x','f'),xi=sub('x','i'),x0=sub('x','0'),tf=sub('t','f'),ti=sub('t','i');
+  const dx='<mrow><mi>Δ</mi><mi>x</mi></mrow>',half='<mfrac><mn>1</mn><mn>2</mn></mfrac>';
+  const FORMULAE={
+    acceleration:`<mi>a</mi><mo>=</mo><mfrac><mrow>${vf}<mo>−</mo>${vi}</mrow><mi>t</mi></mfrac>`,
+    tableVelocity:`<mi>v</mi><mo>=</mo><mfrac><mrow>${xf}<mo>−</mo>${xi}</mrow><mrow>${tf}<mo>−</mo>${ti}</mrow></mfrac>`,
+    uniformPosition:`<mi>x</mi><mo>=</mo>${x0}<mo>+</mo><mi>v</mi><mi>t</mi>`,
+    displacementSpeed:`${dx}<mo>=</mo><mi>v</mi><mi>t</mi>`,
+    finalFromDisplacement:`${xf}<mo>=</mo>${x0}<mo>+</mo>${dx}`,
+    displacementPositions:`${dx}<mo>=</mo>${xf}<mo>−</mo>${x0}`,
+    timeFromDisplacement:`<mi>t</mi><mo>=</mo><mfrac>${dx}<mi>v</mi></mfrac>`,
+    finalVelocity:`${vf}<mo>=</mo>${vi}<mo>+</mo><mi>a</mi><mi>t</mi>`,
+    acceleratedPosition:`${xf}<mo>=</mo>${x0}<mo>+</mo>${vi}<mi>t</mi><mo>+</mo>${half}<mi>a</mi><msup><mi>t</mi><mn>2</mn></msup>`,
+    distanceFinal:`<mi>d</mi><mo>=</mo>${xf}<mo>−</mo>${x0}`
+  };
+  function questionSupport(q){
+    const figure=q.image?`<figure class="question-figure"><img src="${esc(q.image.src)}" alt="${esc(q.image.alt)}" width="640" height="360"></figure>`:'';
+    const table=q.table?`<div class="question-table-wrap"><table class="question-table"><tbody>${q.table.map(row=>`<tr><th scope="row">${esc(row[0])}</th>${row.slice(1).map(value=>`<td>${esc(value)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'';
+    const formulas=q.formulas?.length?`<div class="question-formulas"><strong>${q.formulas.length===1?'Fórmula':'Fórmulas'}</strong>${q.formulas.map(formula=>`<div class="question-formula"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block" aria-label="${esc(formula.text)}">${FORMULAE[formula.id]}</math></div>`).join('')}</div>`:'';
+    return figure+table+formulas;
+  }
   function renderQuestion(){
     if(state.done)return results();if(state.readyToSubmit)return review();
     const q=current(),answer=state.answers[q.id];
     const fields=q.type==='choice'?`<div class="choices">${optionsFor(q).map((option,index)=>{const diagram=forceDiagram(q,option);return `<button type="button" class="choice ${diagram?'choice-with-visual':''} ${answer===option?'selected':''}" data-choice="${esc(option)}" aria-pressed="${answer===option}"><b>${String.fromCharCode(65+index)}</b><span class="choice-text">${esc(option)}</span>${diagram}</button>`;}).join('')}</div>`:`<p class="small muted">Escribe solo el número en cada casilla. Puedes usar punto o coma decimal.</p><div class="parts">${q.parts.map(part=>partMarkup(q,part,answer?.[part.id])).join('')}</div>`;
-    app.innerHTML=`<div class="exam-flow ${q.visuals?'visual-question':''}"><section class="card"><div class="qtop"><span>Ejercicio ${state.index+1} de ${TOTAL} · Tema ${q.topic}</span><span class="type">${q.type==='choice'?'Concepto':'Resolución'}</span></div><h2 id="questionTitle" tabindex="-1">${esc(TOPICS[q.topic-1])}</h2><p class="prompt">${esc(q.prompt)}</p>${fields}<div class="save-state" id="saved">${persisted?'':'Sin guardar. Mantén esta pestaña abierta.'}</div><div class="nav-buttons"><button id="next" class="primary" data-incomplete="${!S.complete(q,answer)}">${state.index===TOTAL-1?'Finalizar prueba':'Siguiente'}</button></div></section></div>`;
+    app.innerHTML=`<div class="exam-flow ${q.visuals||q.image||q.formulas?.length?'visual-question':''}"><section class="card"><div class="qtop"><span>Ejercicio ${state.index+1} de ${TOTAL} · Tema ${q.topic}</span><span class="type">${esc(q.mode||((q.type==='choice')?'Concepto':'Resolución'))}</span></div><h2 id="questionTitle" tabindex="-1">${esc(TOPICS[q.topic-1])}</h2><p class="prompt">${esc(q.prompt)}</p>${questionSupport(q)}${fields}<div class="save-state" id="saved">${persisted?'':'Sin guardar. Mantén esta pestaña abierta.'}</div><div class="nav-buttons"><button id="next" class="primary" data-incomplete="${!S.complete(q,answer)}">${state.index===TOTAL-1?'Finalizar prueba':'Siguiente'}</button></div></section></div>`;
     document.querySelectorAll('[data-choice]').forEach(button=>button.onclick=()=>{state.answers[q.id]=button.dataset.choice;save();renderQuestion();});
     document.querySelectorAll('[data-part]').forEach(field=>{
       const update=()=>{state.answers[q.id]={...(state.answers[q.id]||{}),[field.dataset.part]:field.value};field.classList.remove('missing');save();document.getElementById('next').dataset.incomplete=String(!S.complete(q,state.answers[q.id]));};
@@ -133,7 +154,7 @@
   function details(){return orderedQuestions().map((q,index)=>{
     const answer=state.answers[q.id],points=S.grade(q,answer),correct=points===1,status=correct?'correct':points>0?'partial':'incorrect';
     const rows=q.type==='choice'?answerRow('Respuesta',answer,q.answer,correct):q.parts.map(part=>{const actual=answer?.[part.id],suffix=part.unit?' '+part.unit:'';return answerRow(part.label,String(actual??'')+suffix,String(part.answer)+suffix,S.partCorrect(part,actual));}).join('');
-    return `<article class="review result-${status}"><div class="review-heading"><div class="review-number">${index+1}</div><h3>${esc(TOPICS[q.topic-1])}</h3><span class="result-badge">${correct?'Correcto':points>0?'Parcial':'Incorrecto'}</span></div><p class="review-prompt">${esc(q.prompt)}</p><div class="answer-list">${rows}</div>${correct?'':`<p class="review-explanation">${esc(q.explain)}</p>`}<div class="review-points">${format(points)} / 1 punto</div></article>`;
+    return `<article class="review result-${status}"><div class="review-heading"><div class="review-number">${index+1}</div><h3>${esc(TOPICS[q.topic-1])}</h3><span class="result-badge">${correct?'Correcto':points>0?'Parcial':'Incorrecto'}</span></div><p class="review-prompt">${esc(q.prompt)}</p>${questionSupport(q)}<div class="answer-list">${rows}</div>${correct?'':`<p class="review-explanation">${esc(q.explain)}</p>`}<div class="review-points">${format(points)} / 1 punto</div></article>`;
   }).join('');}
   function results(){
     if(!state?.done)return;const result=totals();

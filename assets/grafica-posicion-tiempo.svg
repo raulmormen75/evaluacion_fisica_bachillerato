@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Gráfica de posición contra tiempo</title>
+  <desc id="desc">Los puntos de la gráfica son 0 segundos y 0 metros; 2 segundos y 4 metros; 5 segundos y 4 metros; 7 segundos y 6 metros.</desc>
+  <rect width="640" height="360" rx="20" fill="#ffffff"/>
+  <text x="320" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#14143A">Posición y tiempo</text>
+  <g stroke="#e3e6f0" stroke-width="1">
+    <line x1="86" y1="210" x2="566" y2="210"/>
+    <line x1="86" y1="142" x2="566" y2="142"/>
+    <line x1="86" y1="74" x2="566" y2="74"/>
+    <line x1="223" y1="74" x2="223" y2="278"/>
+    <line x1="429" y1="74" x2="429" y2="278"/>
+    <line x1="566" y1="74" x2="566" y2="278"/>
+  </g>
+  <g stroke="#14143A" stroke-width="2.5" stroke-linecap="round">
+    <line x1="86" y1="48" x2="86" y2="278"/>
+    <line x1="86" y1="278" x2="589" y2="278"/>
+  </g>
+  <g fill="#14143A" font-family="Arial, sans-serif" font-size="15">
+    <text x="75" y="301" text-anchor="middle">0</text>
+    <text x="223" y="301" text-anchor="middle">2</text>
+    <text x="429" y="301" text-anchor="middle">5</text>
+    <text x="566" y="301" text-anchor="middle">7</text>
+    <text x="67" y="215" text-anchor="end">2</text>
+    <text x="67" y="147" text-anchor="end">4</text>
+    <text x="67" y="79" text-anchor="end">6</text>
+    <text x="320" y="336" text-anchor="middle" font-weight="700">Tiempo (s)</text>
+    <text x="22" y="165" text-anchor="middle" font-weight="700" transform="rotate(-90 22 165)">Posición (m)</text>
+  </g>
+  <path d="M86 278 L223 142 L429 142 L566 74" fill="none" stroke="#2B2F8F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#ffffff" stroke="#2B2F8F" stroke-width="3">
+    <circle cx="86" cy="278" r="6"/>
+    <circle cx="223" cy="142" r="6"/>
+    <circle cx="429" cy="142" r="6"/>
+    <circle cx="566" cy="74" r="6"/>
+  </g>
+</svg>
