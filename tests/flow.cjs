@@ -130,7 +130,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     assert.ok(topicOrders.every(order=>order.split('|').length===3),'Each topic must form one consecutive group');
     assert.ok(new Set(topicOrders).size>1,'Topic order varies across attempts');
     for(const topic of [1,2,3])assert.ok(new Set(orderSamples.map(snapshot=>snapshot.ids.filter(id=>topicsById[id]===topic).join('|'))).size>1,'Exercises vary within topic '+topic);
-    for(const optionKey of Object.keys(initial.orderings))assert.ok(new Set(orderSamples.map(snapshot=>snapshot.orderings[optionKey].join('|'))).size>1,'Options vary for '+optionKey);
+    for(const optionKey of Object.keys(initial.orderings))assert.equal(new Set(orderSamples.map(snapshot=>snapshot.orderings[optionKey].join('|'))).size,1,'Options stay fixed for '+optionKey);
     const mobile=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,acceptDownloads:true});
     const mobilePage=await mobile.newPage();mobilePage.on('pageerror',error=>errors.push(error.message));
     await mobilePage.goto(url,{waitUntil:'networkidle'});await noOverflow(mobilePage);

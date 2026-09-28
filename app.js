@@ -32,7 +32,13 @@
   function orderedQuestions(){return state.ids.map(id=>byId.get(id));}
   function current(){return byId.get(state.ids[state.index]);}
   function choiceKey(q,part){return part?q.id+':'+part.id:q.id;}
-  function optionsFor(q,part){return state.orderings[choiceKey(q,part)];}
+  function optionsFor(q,part){return part?part.choices:q.choices;}
+  function fixedOrderings(){
+    BANK.forEach(q=>{
+      if(q.type==='choice')state.orderings[choiceKey(q)]=[...q.choices];
+      else q.parts.filter(part=>part.kind==='choice').forEach(part=>state.orderings[choiceKey(q,part)]=[...part.choices]);
+    });
+  }
   function restore(){
     try{
       const saved=JSON.parse(localStorage.getItem(KEY));
@@ -69,7 +75,7 @@
         selectBank(saved.version,true);
       }
       if(!saved.done||saved.version===VERSION||saved.scope20)saved.group=GROUP;
-      state=saved;save();
+      state=saved;fixedOrderings();save();
     }catch{state=null;}
   }
   function startScreen(){
@@ -83,10 +89,7 @@
       try{localStorage.setItem(KEY+':test','1');localStorage.removeItem(KEY+':test');}
       catch{notice('Para iniciar, permite guardar datos en este navegador.');return;}
       state={version:VERSION,name,group,started:new Date().toISOString(),ids:shuffle([1,2,3]).flatMap(topic=>shuffle(BANK.filter(q=>q.topic===topic)).map(q=>q.id)),answers:{},orderings:{},index:0,readyToSubmit:false,done:false};
-      BANK.forEach(q=>{
-        if(q.type==='choice')state.orderings[choiceKey(q)]=shuffle(q.choices);
-        else q.parts.filter(part=>part.kind==='choice').forEach(part=>state.orderings[choiceKey(q,part)]=shuffle(part.choices));
-      });
+      fixedOrderings();
       save();renderQuestion();
     };
   }
