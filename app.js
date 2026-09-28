@@ -1,13 +1,14 @@
 (function(){
   'use strict';
   const app=document.getElementById('app');
-  const S=window.ExamScoring, BANK=window.QUESTIONS, TOPICS=window.TOPICS;
-  const KEY='ifr-physics-exam-v1', VERSION=1, TOTAL=BANK.length;
+  const S=window.ExamScoring, NEW_BANK=window.QUESTIONS, LEGACY_BANK=window.LEGACY_QUESTIONS, TOPICS=window.TOPICS;
+  const KEY='ifr-physics-exam-v1', VERSION=2, TOTAL=NEW_BANK.length;
   if('scrollRestoration' in history)history.scrollRestoration='manual';
-  const byId=new Map(BANK.map(q=>[q.id,q]));
+  let BANK=NEW_BANK,byId=new Map(NEW_BANK.map(q=>[q.id,q]));
   let state=null,noticeTimer=null,persisted=true;
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const format=value=>Number(value).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  function selectBank(version){BANK=version===1?LEGACY_BANK:NEW_BANK;byId=new Map(BANK.map(q=>[q.id,q]));}
   function shuffle(items){
     const result=[...items];
     for(let i=result.length-1;i>0;i--){
@@ -34,7 +35,9 @@
   function restore(){
     try{
       const saved=JSON.parse(localStorage.getItem(KEY));
-      if(!saved||saved.version!==VERSION||!Array.isArray(saved.ids)||saved.ids.length!==TOTAL||
+      if(!saved||![1,VERSION].includes(saved.version))return;
+      selectBank(saved.version);
+      if(!Array.isArray(saved.ids)||saved.ids.length!==TOTAL||
         new Set(saved.ids).size!==TOTAL||!saved.ids.every(id=>byId.has(id))||
         !Number.isInteger(saved.index)||saved.index<0||saved.index>=TOTAL||
         typeof saved.name!=='string'||!saved.name.trim()||typeof saved.group!=='string'||!saved.group.trim()||
@@ -58,6 +61,7 @@
   }
   function startScreen(){
     if(state){if(state.done)return results();if(state.readyToSubmit)return review();return renderQuestion();}
+    selectBank(VERSION);
     app.innerHTML=`<div class="intro"><section class="card dark"><div class="eyebrow">Bachillerato · Física I</div><h1>Evaluación<br>de Física I</h1><p class="muted">Conceptos y resolución de ejercicios.</p><div class="stats"><div><strong>${TOTAL}</strong><span>ejercicios</span></div><div><strong>${TOPICS.length}</strong><span>temas</span></div><div><strong>75</strong><span>min aprox.</span></div></div><div class="topics-content"><ul class="topic-list">${TOPICS.map(topic=>`<li>${esc(topic)}</li>`).join('')}</ul></div></section><section class="card"><div class="eyebrow">Datos del alumno</div><h2>Registra tus datos</h2><p class="exam-instructions">Ten a la mano papel y lápiz. Responde cada ejercicio antes de avanzar; después no podrás volver. El intento se guarda en este navegador.</p><form id="startForm"><label class="field" for="name">Nombre completo<input id="name" required maxlength="100" autocomplete="name" placeholder="Escribe tu nombre"></label><label class="field" for="group">Grupo<input id="group" required maxlength="80" placeholder="Ej. Tercer cuatrimestre, grupo A"></label><button class="primary wide" type="submit">Iniciar prueba</button></form></section></div>`;
     document.getElementById('startForm').onsubmit=event=>{
       event.preventDefault();if(state)return;
@@ -78,11 +82,25 @@
     if(part.kind==='choice')return `<label class="field answer-field" for="${id}">${esc(part.label)}<select id="${id}" data-part="${part.id}"><option value="">Selecciona una opción</option>${optionsFor(q,part).map(option=>`<option value="${esc(option)}" ${value===option?'selected':''}>${esc(option)}</option>`).join('')}</select></label>`;
     return `<label class="field answer-field" for="${id}">${esc(part.label)}<span class="input-with-unit"><input id="${id}" data-part="${part.id}" inputmode="decimal" autocomplete="off" spellcheck="false" maxlength="24" value="${esc(value||'')}" placeholder="Escribe un número" aria-describedby="unit-${part.id}"><span id="unit-${part.id}" class="unit">${esc(part.unit||'')}</span></span></label>`;
   }
+  function forceArrow(start,end,y,color){
+    const left=end<start,tip=left?end+7:end-7;
+    return `<line x1="${start}" y1="${y}" x2="${end}" y2="${y}" stroke="${color}" stroke-width="3" stroke-linecap="round"/><path d="M ${end} ${y} L ${tip} ${y-4} L ${tip} ${y+4} Z" fill="${color}"/>`;
+  }
+  function forceDiagram(q,option){
+    const visual=q.visuals?.[q.choices.indexOf(option)];if(!visual)return '';
+    const stages=[6,9].map((push,index)=>{
+      const top=index*82,friction=visual.friction[index],direction=visual.direction;
+      const frictionArrow=friction?forceArrow(direction==='left'?160:200,direction==='left'?160-friction*6:200+friction*6,top+57,'#626D88'):'';
+      const frictionLabel=`Fricción: ${friction} N${friction?(direction==='left'?' ←':' →'):''}`;
+      return `<rect x="1" y="${top+1}" width="358" height="78" rx="8" fill="#F7F8FC" stroke="#DDE2EF"/><text x="12" y="${top+22}" class="force-label force-label-push">Empuje: ${push} N →</text><text x="188" y="${top+22}" class="force-label force-label-friction">${frictionLabel}</text><line x1="130" y1="${top+68}" x2="230" y2="${top+68}" stroke="#A9B2C8" stroke-width="2"/><rect x="160" y="${top+35}" width="40" height="30" rx="3" fill="#E6EBFA" stroke="#1C1E5A" stroke-width="1.5"/><text x="180" y="${top+53}" text-anchor="middle" class="force-box-label">caja</text>${forceArrow(200,200+push*6,top+46,'#2B2F8F')}${frictionArrow}`;
+    }).join('');
+    return `<svg class="force-diagram" viewBox="0 0 360 164" role="img" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">${stages}</svg>`;
+  }
   function renderQuestion(){
     if(state.done)return results();if(state.readyToSubmit)return review();
     const q=current(),answer=state.answers[q.id];
-    const fields=q.type==='choice'?`<div class="choices">${optionsFor(q).map((option,index)=>`<button type="button" class="choice ${answer===option?'selected':''}" data-choice="${esc(option)}" aria-pressed="${answer===option}"><b>${String.fromCharCode(65+index)}</b><span>${esc(option)}</span></button>`).join('')}</div>`:`<p class="small muted">Escribe solo el número en cada casilla. Puedes usar punto o coma decimal.</p><div class="parts">${q.parts.map(part=>partMarkup(q,part,answer?.[part.id])).join('')}</div>`;
-    app.innerHTML=`<div class="exam-flow"><section class="card"><div class="qtop"><span>Ejercicio ${state.index+1} de ${TOTAL} · Tema ${q.topic}</span><span class="type">${q.type==='choice'?'Concepto':'Resolución'}</span></div><h2 id="questionTitle" tabindex="-1">${esc(TOPICS[q.topic-1])}</h2><p class="prompt">${esc(q.prompt)}</p>${fields}<div class="save-state" id="saved">${persisted?'':'Sin guardar. Mantén esta pestaña abierta.'}</div><div class="nav-buttons"><button id="next" class="primary" data-incomplete="${!S.complete(q,answer)}">${state.index===TOTAL-1?'Finalizar prueba':'Siguiente'}</button></div></section></div>`;
+    const fields=q.type==='choice'?`<div class="choices">${optionsFor(q).map((option,index)=>{const diagram=forceDiagram(q,option);return `<button type="button" class="choice ${diagram?'choice-with-visual':''} ${answer===option?'selected':''}" data-choice="${esc(option)}" aria-pressed="${answer===option}"><b>${String.fromCharCode(65+index)}</b><span class="choice-text">${esc(option)}</span>${diagram}</button>`;}).join('')}</div>`:`<p class="small muted">Escribe solo el número en cada casilla. Puedes usar punto o coma decimal.</p><div class="parts">${q.parts.map(part=>partMarkup(q,part,answer?.[part.id])).join('')}</div>`;
+    app.innerHTML=`<div class="exam-flow ${q.visuals?'visual-question':''}"><section class="card"><div class="qtop"><span>Ejercicio ${state.index+1} de ${TOTAL} · Tema ${q.topic}</span><span class="type">${q.type==='choice'?'Concepto':'Resolución'}</span></div><h2 id="questionTitle" tabindex="-1">${esc(TOPICS[q.topic-1])}</h2><p class="prompt">${esc(q.prompt)}</p>${fields}<div class="save-state" id="saved">${persisted?'':'Sin guardar. Mantén esta pestaña abierta.'}</div><div class="nav-buttons"><button id="next" class="primary" data-incomplete="${!S.complete(q,answer)}">${state.index===TOTAL-1?'Finalizar prueba':'Siguiente'}</button></div></section></div>`;
     document.querySelectorAll('[data-choice]').forEach(button=>button.onclick=()=>{state.answers[q.id]=button.dataset.choice;save();renderQuestion();});
     document.querySelectorAll('[data-part]').forEach(field=>{
       const update=()=>{state.answers[q.id]={...(state.answers[q.id]||{}),[field.dataset.part]:field.value};field.classList.remove('missing');save();document.getElementById('next').dataset.incomplete=String(!S.complete(q,state.answers[q.id]));};

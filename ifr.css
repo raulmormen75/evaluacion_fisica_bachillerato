@@ -74,6 +74,12 @@ button:disabled,button[aria-disabled="true"]{opacity:1;color:#7d8295;background:
 .choice.selected{background:#edf0ff;border:1px solid #2b2f8f;color:var(--navy);box-shadow:0 0 0 1px #2b2f8f}
 .choice.selected b{background:var(--navy);color:#fff}
 .choice span{min-width:0;overflow-wrap:anywhere}
+.choice-with-visual{display:grid;grid-template-columns:29px minmax(0,1fr);align-items:start;gap:10px 13px}
+.choice-with-visual .force-diagram{display:block;grid-column:1/-1;width:min(100%,360px);height:auto;margin:3px auto 0}
+.force-label{font:700 14px 'Plus Jakarta Sans',sans-serif}
+.force-label-push{fill:#2B2F8F}.force-label-friction{fill:#4F5C78}
+.force-box-label{font:700 12px 'Plus Jakarta Sans',sans-serif;fill:#1C1E5A}
+.visual-question .nav-buttons{position:static}
 .answer-zone{border:1px dashed #aeb8d5;border-radius:14px;background:#f6f7fc;padding:14px;min-height:94px;font-size:13px;align-content:flex-start}
 .tokens{gap:8px;margin:16px 0}
 .tokens button{font-size:16px;font-weight:500;padding:10px 14px;max-width:100%;overflow-wrap:anywhere}

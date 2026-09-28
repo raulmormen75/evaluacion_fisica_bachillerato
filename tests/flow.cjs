@@ -47,14 +47,22 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     if(first.type==='parts'){
       const part=first.parts[0],field=page.locator('[data-part="'+part.id+'"]');
       if(part.kind==='choice')await field.selectOption(part.answer);else await field.fill(String(part.answer));
-      await page.locator('#next').click();assert.equal((await session(page)).index,0);
+      if(first.parts.length>1){await page.locator('#next').click();assert.equal((await session(page)).index,0);}
       await page.reload({waitUntil:'networkidle'});
       assert.equal((await session(page)).ids.join('|'),initial.ids.join('|'));
       assert.deepEqual((await session(page)).orderings,initial.orderings);
       assert.equal(String((await session(page)).answers[first.id][part.id]),String(part.answer));
     }
+    let desktopFrictionScreenshot;
     for(let index=0;index<27;index++){
-      const q=await current(page);await answer(page,q);
+      const q=await current(page);
+      if(q.id==='v-referencia'){
+        assert.equal(await page.locator('.force-diagram').count(),4);
+        assert.equal(await page.locator('.force-diagram .force-box-label').count(),8);
+        desktopFrictionScreenshot=path.join(os.tmpdir(),'ifr-fisica-friccion-desktop.png');
+        await page.screenshot({path:desktopFrictionScreenshot,fullPage:true});
+      }
+      await answer(page,q);
       assert.equal(await page.locator('#next').getAttribute('data-incomplete'),'false');
       await page.locator('#next').click();
       if(index===0){const saved=await session(page);assert.equal(saved.index,1);await page.reload({waitUntil:'networkidle'});assert.equal((await session(page)).index,1);assert.deepEqual((await session(page)).orderings,initial.orderings);assert.equal(await page.locator('[data-back]').count(),0);}
@@ -89,14 +97,52 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await mobilePage.locator('#name').fill('Alumno móvil');await mobilePage.locator('#group').fill('Tercer cuatrimestre B');
     await mobilePage.getByRole('button',{name:'Iniciar prueba'}).click();await noOverflow(mobilePage);
     const questionScreenshot=path.join(os.tmpdir(),'ifr-fisica-mobile-question.png');await mobilePage.screenshot({path:questionScreenshot,fullPage:true});
-    await mobilePage.addInitScript(([storageKey,snapshot])=>localStorage.setItem(storageKey,JSON.stringify(snapshot)),[key,complete]);
+    await mobilePage.addInitScript(storageKey=>{const seed=sessionStorage.getItem('ifr-test-seed');if(seed)localStorage.setItem(storageKey,seed);},key);
+    await mobilePage.evaluate(key=>{
+      const state=JSON.parse(localStorage.getItem(key)),bank=window.QUESTIONS;
+      state.index=state.ids.indexOf('v-referencia');
+      state.ids.slice(0,state.index).forEach(id=>{const q=bank.find(item=>item.id===id);state.answers[id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+      sessionStorage.setItem('ifr-test-seed',JSON.stringify(state));
+    },key);
+    await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
+    assert.equal(await mobilePage.locator('.force-diagram').count(),4,JSON.stringify(await mobilePage.evaluate(key=>{const saved=JSON.parse(localStorage.getItem(key));return {index:saved?.index,id:saved?.ids?.[saved.index],version:saved?.version,prompt:document.querySelector('.prompt')?.textContent,heading:document.querySelector('h1')?.textContent};},key)));
+    const mobileFrictionScreenshot=path.join(os.tmpdir(),'ifr-fisica-friccion-movil.png');await mobilePage.screenshot({path:mobileFrictionScreenshot,fullPage:true});
+    await mobilePage.evaluate(snapshot=>sessionStorage.setItem('ifr-test-seed',JSON.stringify(snapshot)),complete);
     await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
     assert.equal(await mobilePage.locator('.review').count(),27);
     await mobilePage.waitForTimeout(350);assert.equal(await mobilePage.evaluate(()=>scrollY),0);
     const resultScreenshot=path.join(os.tmpdir(),'ifr-fisica-mobile-result.png');await mobilePage.screenshot({path:resultScreenshot});
+    const legacyContext=await browser.newContext({viewport:{width:1280,height:800}});
+    const legacyPage=await legacyContext.newPage();legacyPage.on('pageerror',error=>errors.push(error.message));
+    await legacyPage.goto(url,{waitUntil:'networkidle'});
+    await legacyPage.addInitScript(storageKey=>{const seed=sessionStorage.getItem('ifr-test-seed');if(seed)localStorage.setItem(storageKey,seed);},key);
+    await legacyPage.evaluate(key=>{
+      const bank=window.LEGACY_QUESTIONS,orderings={};
+      bank.forEach(q=>{
+        if(q.type==='choice')orderings[q.id]=q.choices;
+        else q.parts.filter(part=>part.kind==='choice').forEach(part=>orderings[q.id+':'+part.id]=part.choices);
+      });
+      sessionStorage.setItem('ifr-test-seed',JSON.stringify({version:1,name:'Alumno anterior',group:'Tercer cuatrimestre A',started:new Date().toISOString(),ids:bank.map(q=>q.id),answers:{'m-sentido':'Su sentido'},orderings,index:1,readyToSubmit:false,done:false}));
+    },key);
+    await legacyPage.reload({waitUntil:'networkidle'});
+    assert.match(await legacyPage.locator('.prompt').innerText(),/Una báscula marca 2 kg de más/);
+    assert.equal((await session(legacyPage)).version,1);
+    await legacyPage.evaluate(key=>{
+      const state=JSON.parse(localStorage.getItem(key)),bank=window.LEGACY_QUESTIONS;
+      bank.forEach(q=>{state.answers[q.id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+      state.done=true;state.finished=new Date().toISOString();state.index=bank.length-1;state.readyToSubmit=true;
+      sessionStorage.setItem('ifr-test-seed',JSON.stringify(state));
+    },key);
+    await legacyPage.reload({waitUntil:'networkidle'});
+    assert.match(await legacyPage.locator('.grade-line').innerText(),/10.00 \/ 10/);
+    await legacyPage.getByRole('button',{name:'Iniciar otro intento'}).first().click();
+    await legacyPage.locator('#name').fill('Alumno nuevo');await legacyPage.locator('#group').fill('Tercer cuatrimestre A');
+    await legacyPage.getByRole('button',{name:'Iniciar prueba'}).click();
+    assert.equal((await session(legacyPage)).version,2);
+    await legacyContext.close();
     assert.deepEqual(errors,[]);
-    console.log('PASS: recorrido completo, bloqueo, persistencia, mezcla de temas y opciones, PDF, escritorio y móvil.');
-    console.log(JSON.stringify({pdfPath,desktopIntroScreenshot,desktopQuestionScreenshot,desktopResultScreenshot,introScreenshot,questionScreenshot,resultScreenshot,pdfBytes:bytes.length}));
+    console.log('PASS: recorrido completo, bloqueo, persistencia, migración, diagramas de fricción, PDF, escritorio y móvil.');
+    console.log(JSON.stringify({pdfPath,desktopIntroScreenshot,desktopQuestionScreenshot,desktopFrictionScreenshot,desktopResultScreenshot,introScreenshot,questionScreenshot,mobileFrictionScreenshot,resultScreenshot,pdfBytes:bytes.length}));
     await desktop.close();await mobile.close();
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close();});
