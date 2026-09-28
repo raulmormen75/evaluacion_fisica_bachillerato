@@ -13,7 +13,7 @@ const numerical={
   'm-precision':[.04,.2],'m-promedio':[3.2],'m-rapidez':[1850,1.85],'m-camino':[15,7],
   'm-suma':[4,3,5],'m-resta':[-4,3,5],
   'v-pendiente':[-2],'v-tabla':[3,32],'v-negativa':[24,19],'v-tiempo':[18,6],
-  'v-aceleracion':[8,20],'v-frenado':[6,54,59],'v-encuentro':[4,8],
+  'v-aceleracion':[8,20],'v-frenado':[6,54,59],'v-encuentro':[10],
   'f-empujes':[12,2],'f-pelota':[4],'f-frenado':[-2,-100],
   'f-mochila':[70,70],'f-cubeta':[30,36,36],'f-cubeta-inversa':[50,10,2]
 };
@@ -26,13 +26,20 @@ for(const q of bank){
     assert.equal(new Set(q.choices).size,q.choices.length,q.id);
     assert.ok(q.choices.includes(q.answer),q.id);
     assert.equal(scoring.grade(q,q.answer),1,q.id);
-    assert.equal(scoring.grade(q,q.choices.find(option=>option!==q.answer)),0,q.id);
+    for(const option of q.choices.filter(option=>option!==q.answer))assert.equal(scoring.grade(q,option),0,q.id+': '+option);
     assert.equal(scoring.complete(q,''),false,q.id);
     continue;
   }
   const actualNumbers=Array.from(q.parts).filter(part=>part.kind!=='choice').map(part=>part.answer);
   assert.deepEqual(actualNumbers,numerical[q.id],q.id);
   const correct=Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));
+  for(const part of q.parts.filter(part=>part.kind==='choice')){
+    for(const option of part.choices){
+      assert.equal(scoring.partCorrect(part,option),option===part.answer,q.id+': '+part.id+': '+option);
+      const singleWrong={...correct,[part.id]:option};
+      assert.equal(scoring.grade(q,singleWrong),option===part.answer?1:(q.parts.length-1)/q.parts.length,q.id+': '+option);
+    }
+  }
   assert.equal(scoring.grade(q,correct),1,q.id);
   assert.equal(scoring.complete(q,correct),true,q.id);
   const missing={...correct};delete missing[q.parts[0].id];
@@ -46,8 +53,15 @@ assert.equal(scoring.number('−4'),-4);
 assert.equal(scoring.number('4 m'),null);
 assert.equal(scoring.number('4abc'),null);
 const rounding=bank.find(q=>q.id==='m-rapidez').parts.find(part=>part.id==='kilometros');
-assert.equal(scoring.partCorrect(rounding,'1,854'),true);
+assert.equal(scoring.partCorrect(rounding,'1,854'),false);
+assert.equal(scoring.partCorrect(rounding,'1,850'),true);
 assert.equal(scoring.partCorrect(rounding,'1.86'),false);
+const precisionParts=bank.find(q=>q.id==='m-precision').parts;
+assert.equal(scoring.partCorrect(precisionParts[0],'0.035'),false);
+assert.equal(scoring.partCorrect(precisionParts[0],'0.04'),true);
+assert.equal(scoring.partCorrect(precisionParts[0],'0,040'),true);
+assert.equal(scoring.partCorrect(precisionParts[1],'0.205'),false);
+assert.equal(scoring.partCorrect(precisionParts[1],'0.2'),true);
 const friction=bank.find(q=>q.id==='v-referencia');
 assert.equal(friction.topic,3);
 assert.equal(friction.visuals.length,friction.choices.length);
@@ -57,7 +71,14 @@ const graph=bank.find(q=>q.id==='v-grafica');
 assert.ok(graph.image?.src&&fs.existsSync(path.join(root,graph.image.src)));
 assert.equal(graph.answer,'No cambia de posición.');
 assert.deepEqual(Array.from(bank.find(q=>q.id==='v-tabla').table[1]),['Posición (m)','2','11','20']);
-for(const id of ['v-pendiente','v-tabla','v-negativa','v-tiempo','v-aceleracion','v-frenado'])assert.ok(bank.find(q=>q.id===id).formulas?.length,id);
+for(const id of ['v-pendiente','v-tabla','v-negativa','v-tiempo','v-aceleracion','v-frenado','v-encuentro'])assert.ok(bank.find(q=>q.id===id).formulas?.length,id);
+assert.equal(bank.find(q=>q.id==='f-tercera').answer,'La cubeta jala la cuerda hacia abajo.');
+const v3=context.window.V3_QUESTIONS;
+assert.equal(v3.length,bank.length);
+assert.deepEqual(Array.from(v3.find(q=>q.id==='v-encuentro').parts,part=>part.answer),[4,8]);
+assert.equal(v3.find(q=>q.id==='v-grafica').answer,'No cambia de posición.');
+assert.notEqual(v3.find(q=>q.id==='f-tercera').answer,bank.find(q=>q.id==='f-tercera').answer);
+assert.equal(scoring.partCorrect(v3.find(q=>q.id==='m-rapidez').parts.find(part=>part.id==='kilometros'),'1,854'),true);
 const v2=context.window.V2_QUESTIONS;
 assert.equal(v2.length,bank.length);
 assert.equal(v2.find(q=>q.id==='v-pendiente').type,'choice');

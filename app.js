@@ -1,14 +1,14 @@
 (function(){
   'use strict';
   const app=document.getElementById('app');
-  const S=window.ExamScoring, NEW_BANK=window.QUESTIONS, V2_BANK=window.V2_QUESTIONS, LEGACY_BANK=window.LEGACY_QUESTIONS, TOPICS=window.TOPICS;
-  const KEY='ifr-physics-exam-v1', VERSION=3, TOTAL=NEW_BANK.length;
+  const S=window.ExamScoring, NEW_BANK=window.QUESTIONS, V3_BANK=window.V3_QUESTIONS, V2_BANK=window.V2_QUESTIONS, LEGACY_BANK=window.LEGACY_QUESTIONS, TOPICS=window.TOPICS;
+  const KEY='ifr-physics-exam-v1', VERSION=4, TOTAL=NEW_BANK.length;
   if('scrollRestoration' in history)history.scrollRestoration='manual';
   let BANK=NEW_BANK,byId=new Map(NEW_BANK.map(q=>[q.id,q]));
   let state=null,noticeTimer=null,persisted=true;
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const format=value=>Number(value).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
-  function selectBank(version){BANK=version===1?LEGACY_BANK:version===2?V2_BANK:NEW_BANK;byId=new Map(BANK.map(q=>[q.id,q]));}
+  function selectBank(version){BANK=version===1?LEGACY_BANK:version===2?V2_BANK:version===3?V3_BANK:NEW_BANK;byId=new Map(BANK.map(q=>[q.id,q]));}
   function shuffle(items){
     const result=[...items];
     for(let i=result.length-1;i>0;i--){
@@ -35,7 +35,7 @@
   function restore(){
     try{
       const saved=JSON.parse(localStorage.getItem(KEY));
-      if(!saved||![1,2,VERSION].includes(saved.version))return;
+      if(!saved||![1,2,3,VERSION].includes(saved.version))return;
       selectBank(saved.version);
       if(!Array.isArray(saved.ids)||saved.ids.length!==TOTAL||
         new Set(saved.ids).size!==TOTAL||!saved.ids.every(id=>byId.has(id))||
@@ -62,7 +62,7 @@
   function startScreen(){
     if(state){if(state.done)return results();if(state.readyToSubmit)return review();return renderQuestion();}
     selectBank(VERSION);
-    app.innerHTML=`<div class="intro"><section class="card dark"><div class="eyebrow">Bachillerato · Física I</div><h1>Evaluación<br>de Física I</h1><p class="muted">Conceptos y resolución de ejercicios.</p><div class="stats"><div><strong>${TOTAL}</strong><span>ejercicios</span></div><div><strong>${TOPICS.length}</strong><span>temas</span></div><div><strong>75</strong><span>min aprox.</span></div></div><div class="topics-content"><ul class="topic-list">${TOPICS.map(topic=>`<li>${esc(topic)}</li>`).join('')}</ul></div></section><section class="card"><div class="eyebrow">Datos del alumno</div><h2>Registra tus datos</h2><p class="exam-instructions">Ten a la mano papel y lápiz. Responde cada ejercicio antes de avanzar; después no podrás volver. El intento se guarda en este navegador.</p><form id="startForm"><label class="field" for="name">Nombre completo<input id="name" required maxlength="100" autocomplete="name" placeholder="Escribe tu nombre"></label><label class="field" for="group">Grupo<input id="group" required maxlength="80" placeholder="Ej. Tercer cuatrimestre, grupo A"></label><button class="primary wide" type="submit">Iniciar prueba</button></form></section></div>`;
+    app.innerHTML=`<div class="intro"><section class="card dark"><div class="eyebrow">Bachillerato · Física I</div><h1>Evaluación<br>de Física I</h1><p class="muted">Conceptos y resolución de ejercicios.</p><div class="stats"><div><strong>${TOTAL}</strong><span>ejercicios</span></div><div><strong>${TOPICS.length}</strong><span>temas</span></div><div><strong>75</strong><span>min aprox.</span></div></div><div class="topics-content"><ul class="topic-list">${TOPICS.map(topic=>`<li>${esc(topic)}</li>`).join('')}</ul><img class="exam-mouse" src="assets/exam-mouse.png" alt="Ratón gris con lentes, playera blanca y short azul, sonriente y con el pulgar levantado." width="1024" height="1536"></div></section><section class="card"><div class="eyebrow">Datos del alumno</div><h2>Registra tus datos</h2><p class="exam-instructions">Ten a la mano papel y lápiz. Responde cada ejercicio antes de avanzar; después no podrás volver. El intento se guarda en este navegador.</p><form id="startForm"><label class="field" for="name">Nombre completo<input id="name" required maxlength="100" autocomplete="name" placeholder="Escribe tu nombre"></label><label class="field" for="group">Grupo<input id="group" required maxlength="80" placeholder="Ej. Tercer cuatrimestre, grupo A"></label><button class="primary wide" type="submit">Iniciar prueba</button></form></section></div>`;
     document.getElementById('startForm').onsubmit=event=>{
       event.preventDefault();if(state)return;
       const name=document.getElementById('name').value.trim(),group=document.getElementById('group').value.trim();
@@ -109,7 +109,8 @@
     timeFromDisplacement:`<mi>t</mi><mo>=</mo><mfrac>${dx}<mi>v</mi></mfrac>`,
     finalVelocity:`${vf}<mo>=</mo>${vi}<mo>+</mo><mi>a</mi><mi>t</mi>`,
     acceleratedPosition:`${xf}<mo>=</mo>${x0}<mo>+</mo>${vi}<mi>t</mi><mo>+</mo>${half}<mi>a</mi><msup><mi>t</mi><mn>2</mn></msup>`,
-    distanceFinal:`<mi>d</mi><mo>=</mo>${xf}<mo>−</mo>${x0}`
+    distanceFinal:`<mi>d</mi><mo>=</mo>${xf}<mo>−</mo>${x0}`,
+    remainingDistance:`<mi>d</mi><mo>=</mo>${sub('d','0')}<mo>−</mo><mo>(</mo>${sub('v','A')}<mo>+</mo>${sub('v','L')}<mo>)</mo><mi>t</mi>`
   };
   function questionSupport(q){
     const figure=q.image?`<figure class="question-figure"><img src="${esc(q.image.src)}" alt="${esc(q.image.alt)}" width="640" height="360"></figure>`:'';

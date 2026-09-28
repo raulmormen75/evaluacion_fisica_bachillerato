@@ -65,14 +65,15 @@
       const response=state.answers[q.id],score=scoring.grade(q,response),correct=score===1;
       const color=correct?green:score>0?amber:red,background=correct?'#EAF8EF':score>0?'#FFF5DD':'#FFF0F2';
       const title=wrap(topics[q.topic-1],111,10,true),prompt=wrap(q.prompt,width-17,9.5,true);
-      const support=[...(q.table||[]).map(row=>wrap(row.join('  |  '),width-17,8.5)),...(q.formulas||[]).map(formula=>wrap('Fórmula: '+formula.text,width-17,8.5))].flat();
+      const support=(q.formulas||[]).map(formula=>wrap('Fórmula: '+formula.text,width-17,8.5)).flat();
+      const tableHeight=q.table?.length?q.table.length*9+5:0;
       const graphHeight=q.image&&assets.graph?60:0,graphWidth=graphHeight*640/360;
       const rows=(q.type==='choice'?[{label:'Respuesta',actual:response,expected:q.answer,correct}]:q.parts.map(part=>({label:part.label,actual:String(response?.[part.id]??'')+(part.unit?' '+part.unit:''),expected:String(part.answer)+(part.unit?' '+part.unit:''),correct:scoring.partCorrect(part,response?.[part.id])}))).map(row=>({
         label:wrap(row.label,width-17,8.5,true),actual:wrap('Tu respuesta: '+row.actual,width-17,9),expected:row.correct?[]:wrap('Respuesta correcta: '+row.expected,width-17,9)
       }));
       const explanation=correct?[]:wrap(q.explain,width-17,8.5);
       const header=13+title.length*4.5;
-      const height=header+prompt.length*5+7+(graphHeight?graphHeight+4:0)+support.length*4.5+(support.length?5:0)+rows.reduce((sum,row)=>sum+(row.label.length+row.actual.length+row.expected.length)*4.5+5,0)+explanation.length*4.7+(explanation.length?5:0)+11;
+      const height=header+prompt.length*5+7+(graphHeight?graphHeight+4:0)+tableHeight+support.length*4.5+(support.length?5:0)+rows.reduce((sum,row)=>sum+(row.label.length+row.actual.length+row.expected.length)*4.5+5,0)+explanation.length*4.7+(explanation.length?5:0)+11;
       if(y+height>bottom)page('Detalle de tus respuestas');
       box(left,y,width,height,'#FFFFFF',line,3);doc.setFillColor(color);doc.roundedRect(left,y,1.3,height,.6,.6,'F');
       box(left+6,y+5,10,9,background,null,2);write(index+1,left+8.5,y+11,8,true,color);
@@ -81,6 +82,17 @@
       let top=y+header;
       prompt.forEach(lineText=>{write(lineText,left+8,top,9.5,true);top+=5;});top+=4;
       if(graphHeight){doc.addImage(assets.graph,'PNG',left+8,top,graphWidth,graphHeight);top+=graphHeight+4;}
+      if(tableHeight){
+        const cellWidth=(width-17)/q.table[0].length;
+        q.table.forEach((row,rowIndex)=>{
+          row.forEach((cell,columnIndex)=>{
+            const x=left+8+columnIndex*cellWidth;
+            doc.setFillColor(rowIndex===0?'#EDF0FA':'#FFFFFF');doc.setDrawColor(line);
+            doc.rect(x,top,cellWidth,9,'FD');
+            write(cell,x+3,top+6,8.5,columnIndex===0,navy);
+          });top+=9;
+        });top+=5;
+      }
       support.forEach(lineText=>{write(lineText,left+8,top,8.5,false,navy);top+=4.5;});if(support.length)top+=5;
       rows.forEach(row=>{
         row.label.forEach(lineText=>{write(lineText,left+8,top,8.5,true,navy);top+=4.5;});

@@ -6,7 +6,7 @@ const path=require('node:path');
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
 const key='ifr-physics-exam-v1';
-const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.jpg':'image/jpeg','.svg':'image/svg+xml','.ttf':'font/ttf','.json':'application/json'};
+const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.jpg':'image/jpeg','.png':'image/png','.svg':'image/svg+xml','.ttf':'font/ttf','.json':'application/json'};
 const server=http.createServer((request,response)=>{
   const relative=decodeURIComponent(new URL(request.url,'http://127.0.0.1').pathname).replace(/^\/+/, '')||'index.html';
   const file=path.resolve(root,relative);
@@ -31,6 +31,8 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await page.goto(url,{waitUntil:'networkidle'});
     assert.match(await page.title(),/Física I/);
     assert.equal(await page.locator('img.brand-shield').evaluate(image=>image.complete&&image.naturalWidth>0),true);
+    await page.locator('img[src="assets/exam-mouse.png"]').evaluate(image=>image.decode());
+    assert.equal(await page.locator('img[src="assets/exam-mouse.png"]').evaluate(image=>image.naturalWidth>0),true);
     assert.match(await page.locator('body').evaluate(node=>getComputedStyle(node).fontFamily),/Plus Jakarta Sans/);
     assert.equal(await page.locator('audio').count(),0);
     await noOverflow(page);
@@ -39,7 +41,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await page.getByRole('button',{name:'Iniciar prueba'}).click();
     await page.waitForTimeout(350);
     const desktopQuestionScreenshot=path.join(os.tmpdir(),'ifr-fisica-desktop-question.png');await page.screenshot({path:desktopQuestionScreenshot});
-    const initial=await session(page);assert.equal(initial.ids.length,27);assert.equal(initial.version,3);
+    const initial=await session(page);assert.equal(initial.ids.length,27);assert.equal(initial.version,4);
     assert.equal(await page.locator('#restart').count(),0);
     await page.locator('#next').click();assert.equal((await session(page)).index,0);
     assert.match(await page.locator('#notice').innerText(),/respuesta|partes/);
@@ -56,6 +58,18 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     let desktopFrictionScreenshot,desktopGraphScreenshot;
     for(let index=0;index<27;index++){
       const q=await current(page);
+      assert.equal(await page.locator('.grade-line, #restart, #restartTop, [data-back]').count(),0,q.id);
+      if(index>0){
+        await page.locator('#next').click();
+        assert.equal((await session(page)).index,index,q.id+' must block unanswered navigation');
+      }
+      if(q.type==='parts'&&q.parts.length>1){
+        const firstPart=q.parts[0],field=page.locator('[data-part="'+firstPart.id+'"]');
+        if(firstPart.kind==='choice')await field.selectOption(firstPart.answer);else await field.fill(String(firstPart.answer));
+        await page.locator('#next').click();
+        assert.equal((await session(page)).index,index,q.id+' must require every part');
+      }
+      await noOverflow(page);
       if(q.id==='v-grafica'){
         await page.locator('.question-figure img').evaluate(image=>image.decode());
         assert.equal(await page.locator('.question-figure img').evaluate(image=>image.complete&&image.naturalWidth===640),true);
@@ -100,6 +114,23 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await page.getByRole('button',{name:'Iniciar prueba'}).click();
     const second=await session(page);
     assert.notEqual(second.ids.join('|'),initial.ids.join('|'));
+    const orderSamples=[initial,second];
+    for(let attempt=0;attempt<8;attempt++){
+      await page.evaluate(key=>localStorage.removeItem(key),key);
+      // pagehide saves an active state, so use a fresh page after closing this attempt.
+      const randomPage=await desktop.newPage();
+      await randomPage.goto(url,{waitUntil:'networkidle'});
+      await randomPage.locator('#name').fill('Verificación de orden');await randomPage.locator('#group').fill('A');
+      await randomPage.getByRole('button',{name:'Iniciar prueba'}).click();
+      orderSamples.push(await session(randomPage));
+      await randomPage.close();
+    }
+    const topicsById=await page.evaluate(()=>Object.fromEntries(window.QUESTIONS.map(q=>[q.id,q.topic])));
+    const topicOrders=orderSamples.map(snapshot=>snapshot.ids.map(id=>topicsById[id]).filter((topic,index,all)=>index===0||topic!==all[index-1]).join('|'));
+    assert.ok(topicOrders.every(order=>order.split('|').length===3),'Each topic must form one consecutive group');
+    assert.ok(new Set(topicOrders).size>1,'Topic order varies across attempts');
+    for(const topic of [1,2,3])assert.ok(new Set(orderSamples.map(snapshot=>snapshot.ids.filter(id=>topicsById[id]===topic).join('|'))).size>1,'Exercises vary within topic '+topic);
+    for(const optionKey of Object.keys(initial.orderings))assert.ok(new Set(orderSamples.map(snapshot=>snapshot.orderings[optionKey].join('|'))).size>1,'Options vary for '+optionKey);
     const mobile=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,acceptDownloads:true});
     const mobilePage=await mobile.newPage();mobilePage.on('pageerror',error=>errors.push(error.message));
     await mobilePage.goto(url,{waitUntil:'networkidle'});await noOverflow(mobilePage);
@@ -136,6 +167,19 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
     assert.equal(await mobilePage.locator('.question-formula math').count(),3);
     const mobileFormulaScreenshot=path.join(os.tmpdir(),'ifr-fisica-formulas-movil.png');await mobilePage.screenshot({path:mobileFormulaScreenshot,fullPage:true});
+    const mobileIds=await mobilePage.evaluate(()=>window.QUESTIONS.map(q=>q.id));
+    for(const id of mobileIds){
+      await mobilePage.evaluate(({key,id})=>{
+        const state=JSON.parse(localStorage.getItem(key)),bank=window.QUESTIONS;
+        state.index=state.ids.indexOf(id);state.done=false;state.readyToSubmit=false;state.answers={};
+        state.ids.slice(0,state.index).forEach(previousId=>{const q=bank.find(item=>item.id===previousId);state.answers[previousId]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+        sessionStorage.setItem('ifr-test-seed',JSON.stringify(state));
+      },{key,id});
+      await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
+      const q=await current(mobilePage),before=(await session(mobilePage)).index;
+      await mobilePage.locator('#next').click();assert.equal((await session(mobilePage)).index,before,id);
+      await answer(mobilePage,q);assert.equal(await mobilePage.locator('#next').getAttribute('data-incomplete'),'false',id);
+    }
     await mobilePage.evaluate(snapshot=>sessionStorage.setItem('ifr-test-seed',JSON.stringify(snapshot)),complete);
     await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
     assert.equal(await mobilePage.locator('.review').count(),27);
@@ -167,7 +211,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await legacyPage.getByRole('button',{name:'Iniciar otro intento'}).first().click();
     await legacyPage.locator('#name').fill('Alumno nuevo');await legacyPage.locator('#group').fill('Tercer cuatrimestre A');
     await legacyPage.getByRole('button',{name:'Iniciar prueba'}).click();
-    assert.equal((await session(legacyPage)).version,3);
+    assert.equal((await session(legacyPage)).version,4);
     await legacyContext.close();
     const v2Context=await browser.newContext({viewport:{width:1280,height:800}});
     const v2Page=await v2Context.newPage();v2Page.on('pageerror',error=>errors.push(error.message));
@@ -192,6 +236,27 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     assert.equal((await session(v2Page)).version,2);
     assert.match(await v2Page.locator('.prompt').innerText(),/pendiente/);
     await v2Context.close();
+    const v3Context=await browser.newContext({viewport:{width:1280,height:800}});
+    const v3Page=await v3Context.newPage();v3Page.on('pageerror',error=>errors.push(error.message));
+    await v3Page.goto(url,{waitUntil:'networkidle'});
+    await v3Page.addInitScript(storageKey=>{const seed=sessionStorage.getItem('ifr-test-seed');if(seed)localStorage.setItem(storageKey,seed);},key);
+    await v3Page.evaluate(key=>{
+      const bank=window.V3_QUESTIONS,orderings={};
+      bank.forEach(q=>{if(q.type==='choice')orderings[q.id]=q.choices;else q.parts.filter(part=>part.kind==='choice').forEach(part=>orderings[q.id+':'+part.id]=part.choices);});
+      const ids=bank.map(q=>q.id),index=ids.indexOf('v-encuentro'),answers={};
+      ids.slice(0,index).forEach(id=>{const q=bank.find(item=>item.id===id);answers[id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+      sessionStorage.setItem('ifr-test-seed',JSON.stringify({version:3,name:'Alumno versión tres',group:'Tercer cuatrimestre A',started:new Date().toISOString(),ids,answers,orderings,index,readyToSubmit:false,done:false}));
+    },key);
+    await v3Page.reload({waitUntil:'networkidle'});
+    assert.equal((await session(v3Page)).version,3);
+    assert.equal(await v3Page.locator('[data-part]').count(),2);
+    const oldQuestion=await v3Page.evaluate(()=>window.V3_QUESTIONS.find(q=>q.id==='v-encuentro'));
+    await answer(v3Page,oldQuestion);await v3Page.locator('#next').click();
+    const v3Advanced=await session(v3Page);
+    await v3Page.evaluate(key=>sessionStorage.setItem('ifr-test-seed',localStorage.getItem(key)),key);
+    await v3Page.reload({waitUntil:'networkidle'});
+    assert.deepEqual(await session(v3Page),v3Advanced);
+    await v3Context.close();
     assert.deepEqual(errors,[]);
     console.log('PASS: recorrido completo, bloqueo, persistencia, migración, diagramas de fricción, PDF, escritorio y móvil.');
     console.log(JSON.stringify({pdfPath,desktopIntroScreenshot,desktopQuestionScreenshot,desktopFrictionScreenshot,desktopGraphScreenshot,desktopResultScreenshot,introScreenshot,questionScreenshot,mobileFrictionScreenshot,mobileGraphScreenshot,mobileFormulaScreenshot,resultScreenshot,pdfBytes:bytes.length}));

@@ -11,7 +11,7 @@
   function partCorrect(part,value){
     if(part.kind==='choice')return value===part.answer;
     const result=number(value);
-    const tolerance=part.decimals===undefined?1e-9:0.5*10**(-part.decimals)+1e-9;
+    const tolerance=part.exact||part.decimals===undefined?1e-9:0.5*10**(-part.decimals)+1e-9;
     return result!==null&&Math.abs(result-part.answer)<tolerance;
   }
   function grade(q,value){
