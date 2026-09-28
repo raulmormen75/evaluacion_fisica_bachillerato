@@ -22,7 +22,7 @@ async function answer(page,q){
 }
 async function noOverflow(page){const size=await page.evaluate(()=>({content:document.documentElement.scrollWidth,viewport:innerWidth}));assert.ok(size.content<=size.viewport+1,JSON.stringify(size));}
 (async()=>{
-  const port=await listen(),url='http://127.0.0.1:'+port+'/';
+  const port=await listen(),url=process.env.EXAM_URL||'http://127.0.0.1:'+port+'/';
   const browser=await chromium.launch({headless:true,executablePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'});
   const errors=[];
   try{
