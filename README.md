@@ -2,7 +2,7 @@
 
 Aplicación: https://evaluacion-fisica-ifr.vercel.app/
 
-Evaluación web estática del Instituto Fernando Ramírez para el tercer cuatrimestre de bachillerato. El alumno registra nombre y grupo, responde 27 ejercicios en secuencia y obtiene calificación sobre 10, porcentaje, puntos por tema, detalle y PDF al entregar. La duración prevista es de unos 75 minutos: 20 ejercicios de resolución y siete preguntas de conceptos.
+Evaluación web estática del Instituto Fernando Ramírez para el tercer cuatrimestre de bachillerato. El alumno registra su nombre, responde 20 ejercicios en secuencia y obtiene calificación sobre 10, porcentaje, puntos por tema, detalle y PDF al entregar. La duración prevista es de unos 75 minutos: 14 ejercicios de resolución y seis preguntas de conceptos.
 
 ## Alcance del contenido
 
@@ -14,9 +14,9 @@ Sirve como sitio estático, sin compilación. Para abrirlo localmente, inicia un
 
 El orden de temas, ejercicios y opciones se mezcla en cada intento y se guarda junto con las respuestas en el almacenamiento de ese navegador. El alumno no puede volver a respuestas anteriores ni iniciar otro intento antes de entregar. Se admite punto o coma decimal; las unidades aparecen junto a cada casilla y no deben escribirse dentro de ella. Los ejercicios con varias partes reciben crédito proporcional por cada parte correcta.
 
-Las revisiones aprobadas incorporan cálculos de precisión y exactitud, conversiones de distancia, una pregunta de dos opciones sobre desplazamiento, cuatro esquemas 2D para las opciones de fricción, una gráfica de posición y tiempo, una tabla y fórmulas para los problemas de movimiento. Los intentos iniciados con versiones anteriores conservan sus preguntas y respuestas originales hasta terminar; los intentos nuevos usan el banco vigente.
+Las revisiones aprobadas incorporan cálculos de precisión y exactitud, conversiones de distancia, una pregunta de dos opciones sobre desplazamiento, cuatro esquemas 2D para las opciones de fricción, una gráfica de posición y tiempo, una tabla y fórmulas para los problemas de movimiento. El banco vigente contiene únicamente los primeros 20 reactivos aprobados, hasta «Cuerda y cubeta». Los intentos en curso se ajustan a ese alcance conservando las respuestas de los reactivos incluidos; los resultados ya entregados conservan su banco histórico. El grupo se fija en «Tercer cuatrimestre» sin pedirlo al alumno.
 
-El banco vigente (versión 4) incluye el cálculo simplificado de la separación de dos personas y la redacción aprobada de la interacción entre cuerda y cubeta. Sus respuestas numéricas son exactas: se aceptan representaciones decimales equivalentes, sin ampliar el margen para aceptar valores incorrectos. La portada incorpora un ratón gris con lentes, playera blanca y short azul, generado con transparencia a partir de la pose de la mascota de la evaluación de inglés.
+El banco vigente (versión 5) incluye el cálculo simplificado de la separación de dos personas y la redacción aprobada de la interacción entre cuerda y cubeta. Sus respuestas numéricas son exactas: se aceptan representaciones decimales equivalentes, sin ampliar el margen para aceptar valores incorrectos. La portada incorpora un ratón gris con lentes, playera blanca y short azul, generado con transparencia a partir de la pose de la mascota de la evaluación de inglés.
 
 Todas las casillas numéricas incluyen un control «±» para escribir valores negativos aun cuando el teclado decimal del teléfono no tenga signo menos. Un signo aislado no permite avanzar. Las respuestas ya entregadas en intentos anteriores se conservan. El PDF se prepara al mostrar los resultados y se ofrece mediante un enlace directo; si falla la preparación, puede reintentarse.
 
@@ -28,7 +28,7 @@ Los datos y las respuestas permanecen en el navegador del alumno. No hay envío 
 - `node tests/pdf.cjs`: informe con respuestas correctas, incorrectas y parciales.
 - `node tests/flow.cjs`: recorrido completo con Playwright, recarga, mezcla de opciones, continuidad de intentos anteriores, diagramas, gráfica, fórmulas, PDF y vistas de escritorio y celular. Requiere Playwright disponible en el entorno de pruebas y Chrome instalado.
 - `node tests/mixed-flow.cjs`: intento con aciertos, errores y respuestas parciales; contrasta la calificación y el detalle de pantalla con el PDF descargado. Requiere Playwright, Chrome y PyMuPDF disponibles en el entorno.
-- `node tests/mobile-platforms.cjs`: WebKit con perfil iPhone y Chromium con perfil Pixel, interacción táctil, imágenes, fórmulas, 27 preguntas, signo numérico, recargas, animaciones y PDF. Usa `EXAM_URL` para elegir el sitio; requiere motores de Playwright instalados y PyMuPDF.
+- `node tests/mobile-platforms.cjs`: WebKit con perfil iPhone y Chromium con perfil Pixel, interacción táctil, imágenes, fórmulas, 20 preguntas, signo numérico, recargas, animaciones y PDF. Usa `EXAM_URL` para elegir el sitio; requiere motores de Playwright instalados y PyMuPDF.
 
 Las pruebas de celular se realizan con una ventana emulada de 390 × 844; no sustituyen una comprobación en un teléfono físico. La duración de 75 minutos es una estimación de diseño, pendiente de una aplicación cronometrada con alumnos. Esta evaluación no utiliza audio.
 

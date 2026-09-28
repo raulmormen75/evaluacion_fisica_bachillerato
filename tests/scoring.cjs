@@ -6,18 +6,20 @@ const root=path.resolve(__dirname,'..');
 const context={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(root,'questions.js'),'utf8'),context);
 const bank=context.window.QUESTIONS,scoring=require('../scoring.js');
-assert.equal(bank.length,27);
-assert.equal(new Set(bank.map(q=>q.id)).size,27);
-assert.deepEqual([1,2,3].map(topic=>bank.filter(q=>q.topic===topic).length),[9,8,10]);
+assert.equal(bank.length,20);
+assert.equal(new Set(bank.map(q=>q.id)).size,20);
+assert.deepEqual([1,2,3].map(topic=>bank.filter(q=>q.topic===topic).length),[9,8,3]);
+assert.equal(bank.filter(q=>q.type==='parts').length,13);
+assert.equal(bank.filter(q=>q.type==='choice').length,7);
+assert.equal(context.window.V4_QUESTIONS.length,27);
+assert.deepEqual(Array.from(bank,q=>q.id),Array.from(context.window.V4_QUESTIONS.slice(0,20),q=>q.id));
 const numerical={
   'm-precision':[.04,.2],'m-promedio':[3.2],'m-rapidez':[1850,1.85],'m-camino':[15,7],
   'm-suma':[4,3,5],'m-resta':[-4,3,5],
   'v-pendiente':[-2],'v-tabla':[3,32],'v-negativa':[24,19],'v-tiempo':[18,6],
   'v-aceleracion':[8,20],'v-frenado':[6,54,59],'v-encuentro':[10],
-  'f-empujes':[12,2],'f-pelota':[4],'f-frenado':[-2,-100],
-  'f-mochila':[70,70],'f-cubeta':[30,36,36],'f-cubeta-inversa':[50,10,2]
 };
-assert.equal(Object.keys(numerical).length,19);
+assert.equal(Object.keys(numerical).length,13);
 for(const q of bank){
   assert.ok(q.source&&q.prompt&&q.explain);
   assert.ok(!/resorte|rampa|trabajo mecánico|energía cinética/i.test(q.prompt));
@@ -79,22 +81,22 @@ for(const value of ['-','texto','2.3.4'])assert.equal(scoring.complete(singleNum
 for(const value of ['-2','2,5','0'])assert.equal(scoring.complete(singleNumeric,{[singlePart]:value}),true,value);
 const legacyNumeric=v3.find(q=>q.id==='v-pendiente');
 assert.equal(scoring.complete(legacyNumeric,{[legacyNumeric.parts[0].id]:'texto'}),true);
-assert.equal(v3.length,bank.length);
+assert.equal(v3.length,27);
 assert.deepEqual(Array.from(v3.find(q=>q.id==='v-encuentro').parts,part=>part.answer),[4,8]);
 assert.equal(v3.find(q=>q.id==='v-grafica').answer,'No cambia de posición.');
 assert.notEqual(v3.find(q=>q.id==='f-tercera').answer,bank.find(q=>q.id==='f-tercera').answer);
 assert.equal(scoring.partCorrect(v3.find(q=>q.id==='m-rapidez').parts.find(part=>part.id==='kilometros'),'1,854'),true);
 const v2=context.window.V2_QUESTIONS;
-assert.equal(v2.length,bank.length);
+assert.equal(v2.length,27);
 assert.equal(v2.find(q=>q.id==='v-pendiente').type,'choice');
 assert.equal(v2.find(q=>q.id==='v-grafica').image,null);
 assert.equal(v2.find(q=>q.id==='v-tabla').table,null);
 assert.equal(v2.find(q=>q.id==='f-primera').answer,'0 N');
 const legacy=context.window.LEGACY_QUESTIONS;
-assert.equal(legacy.length,bank.length);
+assert.equal(legacy.length,27);
 assert.equal(legacy.find(q=>q.id==='m-precision').type,'choice');
 assert.equal(legacy.find(q=>q.id==='m-ruta').type,'parts');
 assert.equal(legacy.find(q=>q.id==='v-referencia').topic,2);
 assert.equal(legacy.find(q=>q.id==='v-pendiente').type,'choice');
 assert.equal(scoring.grade(legacy.find(q=>q.id==='m-sentido'),'Su sentido'),1);
-console.log('PASS: 27 reactivos, cobertura, resultados independientes, variantes válidas y crédito parcial.');
+console.log('PASS: 20 reactivos, cobertura, resultados independientes, variantes válidas y crédito parcial.');

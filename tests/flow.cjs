@@ -37,11 +37,11 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     assert.equal(await page.locator('audio').count(),0);
     await noOverflow(page);
     const desktopIntroScreenshot=path.join(os.tmpdir(),'ifr-fisica-desktop-intro.png');await page.screenshot({path:desktopIntroScreenshot});
-    await page.locator('#name').fill('Alumno de prueba');await page.locator('#group').fill('Tercer cuatrimestre A');
+    await page.locator('#name').fill('Alumno de prueba');assert.equal(await page.locator('#group').count(),0);
     await page.getByRole('button',{name:'Iniciar prueba'}).click();
     await page.waitForTimeout(350);
     const desktopQuestionScreenshot=path.join(os.tmpdir(),'ifr-fisica-desktop-question.png');await page.screenshot({path:desktopQuestionScreenshot});
-    const initial=await session(page);assert.equal(initial.ids.length,27);assert.equal(initial.version,4);
+    const initial=await session(page);assert.equal(initial.group,'Tercer cuatrimestre');assert.equal(initial.ids.length,20);assert.equal(initial.version,5);
     assert.equal(await page.locator('#restart').count(),0);
     await page.locator('#next').click();assert.equal((await session(page)).index,0);
     assert.match(await page.locator('#notice').innerText(),/respuesta|partes/);
@@ -56,7 +56,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
       assert.equal(String((await session(page)).answers[first.id][part.id]),String(part.answer));
     }
     let desktopFrictionScreenshot,desktopGraphScreenshot;
-    for(let index=0;index<27;index++){
+    for(let index=0;index<20;index++){
       const q=await current(page);
       assert.equal(await page.locator('.grade-line, #restart, #restartTop, [data-back]').count(),0,q.id);
       if(index>0){
@@ -97,7 +97,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     assert.equal(await page.getByRole('heading',{name:'Finaliza tu prueba'}).count(),1);
     await page.getByRole('button',{name:'Entregar y ver resultado'}).click();
     assert.match(await page.locator('.grade-line').innerText(),/10.00 \/ 10/);
-    assert.equal(await page.locator('.review').count(),27);
+    assert.equal(await page.locator('.review').count(),20);
     assert.equal(await page.locator('.result-tile').count(),3);
     await noOverflow(page);
     await page.waitForTimeout(350);assert.equal(await page.evaluate(()=>scrollY),0);
@@ -110,7 +110,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     const pdfPath=path.join(os.tmpdir(),'ifr-fisica-qa.pdf');fs.writeFileSync(pdfPath,bytes);
     await page.getByRole('button',{name:'Iniciar otro intento'}).first().click();
     assert.equal(await page.locator('#startForm').count(),1);
-    await page.locator('#name').fill('Segundo intento');await page.locator('#group').fill('Tercer cuatrimestre A');
+    await page.locator('#name').fill('Segundo intento');assert.equal(await page.locator('#group').count(),0);
     await page.getByRole('button',{name:'Iniciar prueba'}).click();
     const second=await session(page);
     assert.notEqual(second.ids.join('|'),initial.ids.join('|'));
@@ -120,7 +120,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
       // pagehide saves an active state, so use a fresh page after closing this attempt.
       const randomPage=await desktop.newPage();
       await randomPage.goto(url,{waitUntil:'networkidle'});
-      await randomPage.locator('#name').fill('Verificación de orden');await randomPage.locator('#group').fill('A');
+      await randomPage.locator('#name').fill('Verificación de orden');assert.equal(await randomPage.locator('#group').count(),0);
       await randomPage.getByRole('button',{name:'Iniciar prueba'}).click();
       orderSamples.push(await session(randomPage));
       await randomPage.close();
@@ -135,7 +135,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     const mobilePage=await mobile.newPage();mobilePage.on('pageerror',error=>errors.push(error.message));
     await mobilePage.goto(url,{waitUntil:'networkidle'});await noOverflow(mobilePage);
     const introScreenshot=path.join(os.tmpdir(),'ifr-fisica-mobile-intro.png');await mobilePage.screenshot({path:introScreenshot,fullPage:true});
-    await mobilePage.locator('#name').fill('Alumno móvil');await mobilePage.locator('#group').fill('Tercer cuatrimestre B');
+    await mobilePage.locator('#name').fill('Alumno móvil');assert.equal(await mobilePage.locator('#group').count(),0);
     await mobilePage.getByRole('button',{name:'Iniciar prueba'}).click();await noOverflow(mobilePage);
     const questionScreenshot=path.join(os.tmpdir(),'ifr-fisica-mobile-question.png');await mobilePage.screenshot({path:questionScreenshot,fullPage:true});
     await mobilePage.addInitScript(storageKey=>{const seed=sessionStorage.getItem('ifr-test-seed');if(seed)localStorage.setItem(storageKey,seed);},key);
@@ -182,7 +182,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     }
     await mobilePage.evaluate(snapshot=>sessionStorage.setItem('ifr-test-seed',JSON.stringify(snapshot)),complete);
     await mobilePage.reload({waitUntil:'networkidle'});await noOverflow(mobilePage);
-    assert.equal(await mobilePage.locator('.review').count(),27);
+    assert.equal(await mobilePage.locator('.review').count(),20);
     await mobilePage.waitForTimeout(350);assert.equal(await mobilePage.evaluate(()=>scrollY),0);
     const resultScreenshot=path.join(os.tmpdir(),'ifr-fisica-mobile-result.png');await mobilePage.screenshot({path:resultScreenshot});
     const legacyContext=await browser.newContext({viewport:{width:1280,height:800}});
@@ -201,7 +201,7 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     assert.match(await legacyPage.locator('.prompt').innerText(),/Una báscula marca 2 kg de más/);
     assert.equal((await session(legacyPage)).version,1);
     await legacyPage.evaluate(key=>{
-      const state=JSON.parse(localStorage.getItem(key)),bank=window.LEGACY_QUESTIONS;
+      const state=JSON.parse(localStorage.getItem(key)),bank=window.LEGACY_QUESTIONS.filter(q=>state.ids.includes(q.id));
       bank.forEach(q=>{state.answers[q.id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
       state.done=true;state.finished=new Date().toISOString();state.index=bank.length-1;state.readyToSubmit=true;
       sessionStorage.setItem('ifr-test-seed',JSON.stringify(state));
@@ -209,9 +209,9 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await legacyPage.reload({waitUntil:'networkidle'});
     assert.match(await legacyPage.locator('.grade-line').innerText(),/10.00 \/ 10/);
     await legacyPage.getByRole('button',{name:'Iniciar otro intento'}).first().click();
-    await legacyPage.locator('#name').fill('Alumno nuevo');await legacyPage.locator('#group').fill('Tercer cuatrimestre A');
+    await legacyPage.locator('#name').fill('Alumno nuevo');assert.equal(await legacyPage.locator('#group').count(),0);
     await legacyPage.getByRole('button',{name:'Iniciar prueba'}).click();
-    assert.equal((await session(legacyPage)).version,4);
+    assert.equal((await session(legacyPage)).version,5);
     await legacyContext.close();
     const v2Context=await browser.newContext({viewport:{width:1280,height:800}});
     const v2Page=await v2Context.newPage();v2Page.on('pageerror',error=>errors.push(error.message));
@@ -257,6 +257,39 @@ async function noOverflow(page){const size=await page.evaluate(()=>({content:doc
     await v3Page.reload({waitUntil:'networkidle'});
     assert.deepEqual(await session(v3Page),v3Advanced);
     await v3Context.close();
+    const migration=await browser.newContext({viewport:{width:390,height:844}}),migrationPage=await migration.newPage();
+    await migrationPage.goto(url,{waitUntil:'networkidle'});
+    await migrationPage.addInitScript(storageKey=>{const seed=sessionStorage.getItem('ifr-test-seed');if(seed)localStorage.setItem(storageKey,seed);},key);
+    for(const scenario of ['extra-current','retained-current','all-retained-done','historical-done']){
+      const original=await migrationPage.evaluate(({key,scenario})=>{
+        const bank=window.V4_QUESTIONS,approved=window.QUESTIONS.map(q=>q.id),extras=bank.filter(q=>!approved.includes(q.id)).map(q=>q.id);
+        const orderings={};bank.forEach(q=>{if(q.type==='choice')orderings[q.id]=[...q.choices].reverse();else q.parts.filter(part=>part.kind==='choice').forEach(part=>orderings[q.id+':'+part.id]=[...part.choices].reverse());});
+        let ids=[extras[0],approved[0],extras[1],approved[1],extras[2],...approved.slice(2),...extras.slice(3)],index=scenario==='extra-current'?4:5;
+        if(scenario==='all-retained-done'){ids=[...approved,...extras];index=20;}
+        if(scenario==='historical-done'){ids=bank.map(q=>q.id);index=26;}
+        const answers={};ids.slice(0,scenario==='historical-done'?27:index).forEach(id=>{const q=bank.find(item=>item.id===id);answers[id]=q.type==='choice'?q.answer:Object.fromEntries(q.parts.map(part=>[part.id,String(part.answer)]));});
+        const snapshot={version:4,name:'Migración veinte',group:'Grupo histórico',started:new Date().toISOString(),ids,answers,orderings,index,readyToSubmit:scenario==='historical-done',done:scenario==='historical-done'};
+        if(snapshot.done)snapshot.finished=new Date().toISOString();
+        sessionStorage.setItem('ifr-test-seed',JSON.stringify(snapshot));return snapshot;
+      },{key,scenario});
+      await migrationPage.reload({waitUntil:'networkidle'});
+      const restored=await session(migrationPage);
+      if(scenario==='historical-done'){
+        assert.equal(restored.ids.length,27);assert.equal(await migrationPage.locator('.review').count(),27);
+        assert.equal(await migrationPage.locator('.grade-line strong').innerText(),'10.00 / 10');assert.equal(restored.group,'Grupo histórico');
+      }else{
+        assert.equal(restored.ids.length,20);assert.equal(restored.scope20,true);assert.equal(restored.group,'Tercer cuatrimestre');
+        const approved=await migrationPage.evaluate(()=>window.QUESTIONS.map(q=>q.id));
+        assert.deepEqual(restored.ids,original.ids.filter(id=>approved.includes(id)));
+        for(const [id,value] of Object.entries(original.answers))if(approved.includes(id))assert.deepEqual(restored.answers[id],value,id);
+        assert.ok(Object.keys(restored.answers).every(id=>approved.includes(id)));
+        if(scenario==='all-retained-done'){assert.equal(restored.readyToSubmit,true);assert.equal(await migrationPage.getByRole('heading',{name:'Finaliza tu prueba'}).count(),1);}
+        else{assert.equal(restored.index,2);assert.equal(restored.ids[restored.index],approved[2]);}
+        await migrationPage.evaluate(key=>sessionStorage.setItem('ifr-test-seed',localStorage.getItem(key)),key);
+        await migrationPage.reload({waitUntil:'networkidle'});assert.deepEqual(await session(migrationPage),restored);
+      }
+    }
+    await migration.close();
     assert.deepEqual(errors,[]);
     console.log('PASS: recorrido completo, bloqueo, persistencia, migración, diagramas de fricción, PDF, escritorio y móvil.');
     console.log(JSON.stringify({pdfPath,desktopIntroScreenshot,desktopQuestionScreenshot,desktopFrictionScreenshot,desktopGraphScreenshot,desktopResultScreenshot,introScreenshot,questionScreenshot,mobileFrictionScreenshot,mobileGraphScreenshot,mobileFormulaScreenshot,resultScreenshot,pdfBytes:bytes.length}));

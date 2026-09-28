@@ -1,14 +1,15 @@
 (function(){
   'use strict';
   const app=document.getElementById('app');
-  const S=window.ExamScoring, NEW_BANK=window.QUESTIONS, V3_BANK=window.V3_QUESTIONS, V2_BANK=window.V2_QUESTIONS, LEGACY_BANK=window.LEGACY_QUESTIONS, TOPICS=window.TOPICS;
-  const KEY='ifr-physics-exam-v1', VERSION=4, TOTAL=NEW_BANK.length;
+  const S=window.ExamScoring, NEW_BANK=window.QUESTIONS, V4_BANK=window.V4_QUESTIONS, V3_BANK=window.V3_QUESTIONS, V2_BANK=window.V2_QUESTIONS, LEGACY_BANK=window.LEGACY_QUESTIONS, TOPICS=window.TOPICS;
+  const KEY='ifr-physics-exam-v1', VERSION=5, GROUP='Tercer cuatrimestre';
+  let TOTAL=NEW_BANK.length;
   if('scrollRestoration' in history)history.scrollRestoration='manual';
   let BANK=NEW_BANK,byId=new Map(NEW_BANK.map(q=>[q.id,q]));
   let state=null,noticeTimer=null,persisted=true,pdfURL=null;
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const format=value=>Number(value).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
-  function selectBank(version){BANK=version===1?LEGACY_BANK:version===2?V2_BANK:version===3?V3_BANK:NEW_BANK;byId=new Map(BANK.map(q=>[q.id,q]));}
+  function selectBank(version,scope20=false){BANK=version===1?LEGACY_BANK:version===2?V2_BANK:version===3?V3_BANK:version===4?V4_BANK:NEW_BANK;if(scope20)BANK=BANK.slice(0,20);TOTAL=BANK.length;byId=new Map(BANK.map(q=>[q.id,q]));}
   function shuffle(items){
     const result=[...items];
     for(let i=result.length-1;i>0;i--){
@@ -35,8 +36,8 @@
   function restore(){
     try{
       const saved=JSON.parse(localStorage.getItem(KEY));
-      if(!saved||![1,2,3,VERSION].includes(saved.version))return;
-      selectBank(saved.version);
+      if(!saved||![1,2,3,4,VERSION].includes(saved.version))return;
+      selectBank(saved.version,saved.scope20===true);
       if(!Array.isArray(saved.ids)||saved.ids.length!==TOTAL||
         new Set(saved.ids).size!==TOTAL||!saved.ids.every(id=>byId.has(id))||
         !Number.isInteger(saved.index)||saved.index<0||saved.index>=TOTAL||
@@ -58,17 +59,27 @@
       if(previous.some(id=>!submitted(id)))return;
       if(saved.done&&(!saved.finished||saved.ids.some(id=>!submitted(id))))return;
       if(saved.readyToSubmit&&(saved.index!==TOTAL-1||saved.ids.some(id=>!submitted(id))))return;
-      state=saved;
+      if(!saved.done&&saved.version<VERSION&&!saved.scope20){
+        const allowed=new Set(NEW_BANK.map(q=>q.id)),completed=saved.ids.slice(0,saved.index).filter(id=>allowed.has(id)).length;
+        saved.ids=saved.ids.filter(id=>allowed.has(id));
+        saved.answers=Object.fromEntries(Object.entries(saved.answers).filter(([id])=>allowed.has(id)));
+        saved.orderings=Object.fromEntries(Object.entries(saved.orderings).filter(([key])=>allowed.has(key.split(':')[0])));
+        saved.scope20=true;saved.index=Math.min(completed,saved.ids.length-1);
+        saved.readyToSubmit=Boolean(saved.readyToSubmit||completed===saved.ids.length);
+        selectBank(saved.version,true);
+      }
+      if(!saved.done||saved.version===VERSION||saved.scope20)saved.group=GROUP;
+      state=saved;save();
     }catch{state=null;}
   }
   function startScreen(){
     if(state){if(state.done)return results();if(state.readyToSubmit)return review();return renderQuestion();}
     selectBank(VERSION);
-    app.innerHTML=`<div class="intro"><section class="card dark"><div class="eyebrow">Bachillerato · Física I</div><h1>Evaluación<br>de Física I</h1><p class="muted">Conceptos y resolución de ejercicios.</p><div class="stats"><div><strong>${TOTAL}</strong><span>ejercicios</span></div><div><strong>${TOPICS.length}</strong><span>temas</span></div><div><strong>75</strong><span>min aprox.</span></div></div><div class="topics-content"><ul class="topic-list">${TOPICS.map(topic=>`<li>${esc(topic)}</li>`).join('')}</ul><img class="exam-mouse" src="assets/exam-mouse.png" alt="Ratón gris con lentes, playera blanca y short azul, sonriente y con el pulgar levantado." width="1024" height="1536"></div></section><section class="card"><div class="eyebrow">Datos del alumno</div><h2>Registra tus datos</h2><p class="exam-instructions">Ten a la mano papel y lápiz. Responde cada ejercicio antes de avanzar; después no podrás volver. El intento se guarda en este navegador.</p><form id="startForm"><label class="field" for="name">Nombre completo<input id="name" required maxlength="100" autocomplete="name" placeholder="Escribe tu nombre"></label><label class="field" for="group">Grupo<input id="group" required maxlength="80" placeholder="Ej. Tercer cuatrimestre, grupo A"></label><button class="primary wide" type="submit">Iniciar prueba</button></form></section></div>`;
+    app.innerHTML=`<div class="intro"><section class="card dark"><div class="eyebrow">Bachillerato · Física I</div><h1>Evaluación<br>de Física I</h1><p class="muted">Conceptos y resolución de ejercicios.</p><div class="stats"><div><strong>${TOTAL}</strong><span>ejercicios</span></div><div><strong>${TOPICS.length}</strong><span>temas</span></div><div><strong>75</strong><span>min aprox.</span></div></div><div class="topics-content"><ul class="topic-list">${TOPICS.map(topic=>`<li>${esc(topic)}</li>`).join('')}</ul><img class="exam-mouse" src="assets/exam-mouse.png" alt="Ratón gris con lentes, playera blanca y short azul, sonriente y con el pulgar levantado." width="1024" height="1536"></div></section><section class="card"><div class="eyebrow">Datos del alumno</div><h2>Registra tu nombre</h2><p class="exam-instructions">Ten a la mano papel y lápiz. Responde cada ejercicio antes de avanzar; después no podrás volver. El intento se guarda en este navegador.</p><form id="startForm"><label class="field" for="name">Nombre completo<input id="name" required maxlength="100" autocomplete="name" placeholder="Escribe tu nombre"></label><button class="primary wide" type="submit">Iniciar prueba</button></form></section></div>`;
     document.getElementById('startForm').onsubmit=event=>{
       event.preventDefault();if(state)return;
-      const name=document.getElementById('name').value.trim(),group=document.getElementById('group').value.trim();
-      if(!name||!group){notice('Escribe tu nombre y tu grupo.');return;}
+      const name=document.getElementById('name').value.trim(),group=GROUP;
+      if(!name){notice('Escribe tu nombre.');return;}
       try{localStorage.setItem(KEY+':test','1');localStorage.removeItem(KEY+':test');}
       catch{notice('Para iniciar, permite guardar datos en este navegador.');return;}
       state={version:VERSION,name,group,started:new Date().toISOString(),ids:shuffle([1,2,3]).flatMap(topic=>shuffle(BANK.filter(q=>q.topic===topic)).map(q=>q.id)),answers:{},orderings:{},index:0,readyToSubmit:false,done:false};

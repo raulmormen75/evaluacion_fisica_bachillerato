@@ -45,7 +45,7 @@ async function platform(engine,device,name){
     await animatedPage.waitForTimeout(350);
     const visible=await animatedPage.locator('.intro').evaluate(element=>({opacity:getComputedStyle(element).opacity,transform:getComputedStyle(element).transform}));
     assert.equal(visible.opacity,'1');assert.ok(['none','matrix(1, 0, 0, 1, 0, 0)'].includes(visible.transform));
-    await animatedPage.locator('#name').fill('Animación');await animatedPage.locator('#group').fill('QA');
+    await animatedPage.locator('#name').fill('Animación');assert.equal(await animatedPage.locator('#group').count(),0);
     await animatedPage.getByRole('button',{name:'Iniciar prueba'}).tap();await animatedPage.waitForTimeout(350);
     assert.equal(await animatedPage.locator('.exam-flow').evaluate(element=>getComputedStyle(element).opacity),'1');
     await animatedPage.locator('#next').tap();assert.equal((await state(animatedPage)).index,0);
@@ -60,12 +60,12 @@ async function platform(engine,device,name){
     await page.setViewportSize(device.viewport);
     const intro=path.join(os.tmpdir(),'ifr-mobile-'+name+'-intro.png');await page.screenshot({path:intro,fullPage:true});screenshots.push(intro);
     await page.locator('#name').tap();await page.locator('#name').fill('Alumno '+name);
-    await page.locator('#group').tap();await page.locator('#group').fill('Móvil');
+    assert.equal(await page.locator('#group').count(),0);
     await page.getByRole('button',{name:'Iniciar prueba'}).tap();
-    const initial=await state(page);assert.equal(initial.version,4);assert.equal(initial.ids.length,27);
+    const initial=await state(page);assert.equal(initial.group,'Tercer cuatrimestre');assert.equal(initial.version,5);assert.equal(initial.ids.length,20);
     const bank=await page.evaluate(()=>window.QUESTIONS),byId=new Map(bank.map(q=>[q.id,q]));
     let testedDraft=false,testedSelect=false;
-    for(let index=0;index<27;index++){
+    for(let index=0;index<20;index++){
       const snapshot=await state(page),q=byId.get(snapshot.ids[index]);
       assert.equal(snapshot.index,index,q.id);
       await page.locator('#next').tap();assert.equal((await state(page)).index,index,q.id);
@@ -106,7 +106,7 @@ async function platform(engine,device,name){
     assert.ok(testedDraft&&testedSelect);
     await page.getByRole('button',{name:'Entregar y ver resultado'}).tap();
     assert.equal(await page.locator('.grade-line strong').innerText(),'10.00 / 10');
-    assert.equal(await page.locator('.review').count(),27);
+    assert.equal(await page.locator('.review').count(),20);
     for(const viewport of [{width:320,height:568},{width:375,height:667},{width:667,height:375}]){
       await page.setViewportSize(viewport);await noOverflow(page,name+' result '+viewport.width);
     }
@@ -120,11 +120,11 @@ async function platform(engine,device,name){
     const pdfImage=path.join(os.tmpdir(),'ifr-mobile-'+name+'-pdf.png');
     const report=JSON.parse(execFileSync('python',['-c','import fitz,json,sys; d=fitz.open(sys.argv[1]); t="\\n".join(p.get_text() for p in d); d[0].get_pixmap(matrix=fitz.Matrix(1,1)).save(sys.argv[2]); print(json.dumps({"pages":len(d),"text":t}))',pdfPath,pdfImage],{encoding:'utf8'}));
     assert.ok(report.text.includes('10.00 / 10'));assert.ok(report.text.includes('100.00%'));
-    assert.equal((report.text.match(/^Correcto$/gm)||[]).length,27);assert.equal((report.text.match(/1\.00 \/ 1 punto/g)||[]).length,27);
+    assert.equal((report.text.match(/^Correcto$/gm)||[]).length,20);assert.equal((report.text.match(/1\.00 \/ 1 punto/g)||[]).length,20);
     await page.reload({waitUntil:'networkidle'});assert.equal(await page.locator('.grade-line strong').innerText(),'10.00 / 10');
     await page.getByRole('button',{name:'Iniciar otro intento'}).first().tap();assert.equal(await page.locator('#startForm').count(),1);
     assert.deepEqual(failures,[]);
-    console.log(JSON.stringify({status:'PASS',name,browser:browser.version(),questions:27,widths:[320,375,667],touch:true,reducedMotion:true,draftAndProgressRestored:true,pdfBytes:bytes.length,pdfPages:report.pages,pdfPath,pdfImage,screenshots}));
+    console.log(JSON.stringify({status:'PASS',name,browser:browser.version(),questions:20,widths:[320,375,667],touch:true,reducedMotion:true,draftAndProgressRestored:true,pdfBytes:bytes.length,pdfPages:report.pages,pdfPath,pdfImage,screenshots}));
     await context.close();
   }finally{await browser.close();}
 }

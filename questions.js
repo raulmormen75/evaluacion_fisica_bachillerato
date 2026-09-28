@@ -59,3 +59,6 @@ const LEGACY_OVERRIDES = {
 window.LEGACY_QUESTIONS = window.V2_QUESTIONS.map(question=>({...question,...(LEGACY_OVERRIDES[question.id]||{})}));
 /* Los resultados actuales son exactos; las versiones previas conservan su tolerancia. */
 window.QUESTIONS = window.QUESTIONS.map(question=>({...question,...(question.type==='parts'?{parts:question.parts.map(part=>part.kind==='choice'?part:{...part,exact:true})}:{})}));
+/* El alcance aprobado termina en «Cuerda y cubeta» (reactivo 20). */
+window.V4_QUESTIONS = window.QUESTIONS;
+window.QUESTIONS = window.V4_QUESTIONS.slice(0,20);

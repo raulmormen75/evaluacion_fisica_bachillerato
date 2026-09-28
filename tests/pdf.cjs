@@ -8,9 +8,10 @@ const report=require('../pdf-report.js'),scoring=require('../scoring.js');
 const root=path.resolve(__dirname,'..'),context={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(root,'questions.js'),'utf8'),context);
 const questions=context.window.QUESTIONS,topics=context.window.TOPICS;
+assert.equal(questions.length,20);
 const assets={regular:fs.readFileSync(path.join(root,'assets/fonts/PlusJakartaSans-Regular.ttf')).toString('base64'),bold:fs.readFileSync(path.join(root,'assets/fonts/PlusJakartaSans-Bold.ttf')).toString('base64'),shield:fs.readFileSync(path.join(root,'assets/ifr-shield.jpg')).toString('base64')};
 if(process.env.IFR_PDF_GRAPH)assets.graph='data:image/png;base64,'+fs.readFileSync(process.env.IFR_PDF_GRAPH).toString('base64');
-const state={name:'Resultado de prueba mixta',group:'Tercer cuatrimestre A',finished:'2026-09-27T12:00:00Z',answers:{}};
+const state={name:'Resultado de prueba mixta',group:'Tercer cuatrimestre',finished:'2026-09-27T12:00:00Z',answers:{}};
 questions.forEach((q,index)=>{
   if(q.type==='choice')state.answers[q.id]=index%3?q.answer:q.choices.find(option=>option!==q.answer);
   else{

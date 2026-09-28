@@ -21,7 +21,7 @@ const pdfText=value=>String(value).replace(/−/g,'-').replace(/×/g,' x ').repl
     const context=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
     const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.goto(url,{waitUntil:'networkidle'});
-    await page.locator('#name').fill('Prueba mixta de calificación');await page.locator('#group').fill('QA');
+    await page.locator('#name').fill('Prueba mixta de calificación');assert.equal(await page.locator('#group').count(),0);
     await page.getByRole('button',{name:'Iniciar prueba'}).click();
     const ordered=await page.evaluate(key=>{const state=JSON.parse(localStorage.getItem(key));return state.ids.map(id=>window.QUESTIONS.find(q=>q.id===id));},key);
     const expected=[],topicPoints=[0,0,0],topicTotals=[0,0,0];
@@ -56,7 +56,7 @@ const pdfText=value=>String(value).replace(/−/g,'-').replace(/×/g,' x ').repl
     assert.equal(await page.locator('.grade-line strong').innerText(),format(grade)+' / 10');
     assert.equal(await page.locator('.grade-line span').innerText(),format(percentage)+'%');
     for(let topic=0;topic<3;topic++)assert.equal(await page.locator('.result-tile strong').nth(topic).innerText(),format(topicPoints[topic])+' / '+topicTotals[topic]);
-    assert.equal(await page.locator('.review').count(),27);
+    assert.equal(await page.locator('.review').count(),20);
     for(const [index,item] of expected.entries()){
       const card=page.locator('.review').nth(index);
       assert.equal(await card.locator('.result-badge').innerText(),item.status,item.id);
@@ -76,10 +76,10 @@ const pdfText=value=>String(value).replace(/−/g,'-').replace(/×/g,' x ').repl
     const text=extracted.join('\n'),cover=pdfText(extracted[0]);
     assert.ok(cover.includes(pdfText(format(grade)+' / 10')));
     assert.ok(cover.includes(pdfText(format(percentage)+'%')));
-    assert.ok(cover.includes(pdfText(format(points)+' de 27 puntos')));
+    assert.ok(cover.includes(pdfText(format(points)+' de 20 puntos')));
     for(let topic=0;topic<3;topic++)assert.ok(cover.includes(pdfText(format(topicPoints[topic])+' / '+topicTotals[topic])));
     const blocks=[...text.matchAll(/^(Correcto|Parcial|Incorrecto)\n([\s\S]*?)\n(\d+\.\d{2}) \/ 1 punto/gm)];
-    assert.equal(blocks.length,27,'PDF must contain all 27 individually scored questions');
+    assert.equal(blocks.length,20,'PDF must contain all 20 individually scored questions');
     for(const [index,item] of expected.entries()){
       const block=blocks[index];assert.equal(block[1],item.status,item.id);assert.equal(block[3],format(item.points),item.id);
       const body=pdfText(block[2]);
@@ -90,7 +90,7 @@ const pdfText=value=>String(value).replace(/−/g,'-').replace(/×/g,' x ').repl
       assert.equal((block[2].match(/Respuesta correcta:/g)||[]).length,item.rows.filter(row=>!row.correct).length,item.id);
     }
     assert.deepEqual(errors,[]);
-    console.log('PASS: 27 respuestas mixtas; cada estado, punto, respuesta y corrección coinciden en pantalla y PDF; nota y temas calculados sin usar scoring.js.');
+    console.log('PASS: 20 respuestas mixtas; cada estado, punto, respuesta y corrección coinciden en pantalla y PDF; nota y temas calculados sin usar scoring.js.');
     console.log(JSON.stringify({url,grade:format(grade),percentage:format(percentage),points:format(points),statuses:Object.fromEntries(['Correcto','Incorrecto','Parcial'].map(status=>[status,statuses.filter(value=>value===status).length])),pdfPath,pages:extracted.length,screenshot}));
     await context.close();
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
