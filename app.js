@@ -131,12 +131,18 @@
     const formulas=q.formulas?.length?`<div class="question-formulas"><strong>${q.formulas.length===1?'Fórmula':'Fórmulas'}</strong>${q.formulas.map(formula=>`<div class="question-formula"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block" aria-label="${esc(formula.text)}">${FORMULAE[formula.id]}</math></div>`).join('')}</div>`:'';
     return figure+table+formulas;
   }
-  function renderQuestion(){
+  function screenTop(){
+    const heading=app.querySelector('h1,h2');
+    if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});}
+    window.scrollTo({top:0,left:0,behavior:'instant'});
+    requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'instant'}));
+  }
+  function renderQuestion(resetScroll=true){
     if(state.done)return results();if(state.readyToSubmit)return review();
     const q=current(),answer=state.answers[q.id];
     const fields=q.type==='choice'?`<div class="choices">${optionsFor(q).map((option,index)=>{const diagram=forceDiagram(q,option);return `<button type="button" class="choice ${diagram?'choice-with-visual':''} ${answer===option?'selected':''}" data-choice="${esc(option)}" aria-pressed="${answer===option}"><b>${String.fromCharCode(65+index)}</b><span class="choice-text">${esc(option)}</span>${diagram}</button>`;}).join('')}</div>`:`<p class="small muted">Escribe solo el número en cada casilla. Puedes usar punto o coma decimal. Pulsa ± para cambiar el signo.</p><div class="parts">${q.parts.map(part=>partMarkup(q,part,answer?.[part.id])).join('')}</div>`;
     app.innerHTML=`<div class="exam-flow ${q.visuals||q.image||q.formulas?.length?'visual-question':''}"><section class="card"><div class="qtop"><span>Ejercicio ${state.index+1} de ${TOTAL} · Tema ${q.topic}</span><span class="type">${esc(q.mode||((q.type==='choice')?'Concepto':'Resolución'))}</span></div><h2 id="questionTitle" tabindex="-1">${esc(TOPICS[q.topic-1])}</h2><p class="prompt">${esc(q.prompt)}</p>${questionSupport(q)}${fields}<div class="save-state" id="saved">${persisted?'':'Sin guardar. Mantén esta pestaña abierta.'}</div><div class="nav-buttons"><button id="next" class="primary" data-incomplete="${!S.complete(q,answer)}">${state.index===TOTAL-1?'Finalizar prueba':'Siguiente'}</button></div></section></div>`;
-    document.querySelectorAll('[data-choice]').forEach(button=>button.onclick=()=>{state.answers[q.id]=button.dataset.choice;save();renderQuestion();});
+    document.querySelectorAll('[data-choice]').forEach(button=>button.onclick=()=>{state.answers[q.id]=button.dataset.choice;save();renderQuestion(false);});
     document.querySelectorAll('[data-part]').forEach(field=>{
       const update=()=>{state.answers[q.id]={...(state.answers[q.id]||{}),[field.dataset.part]:field.value};field.classList.remove('missing');save();document.getElementById('next').dataset.incomplete=String(!S.complete(q,state.answers[q.id]));};
       field.addEventListener(field.tagName==='SELECT'?'change':'input',update);
@@ -150,8 +156,9 @@
     document.getElementById('next').onclick=()=>{
       if(!S.complete(q,state.answers[q.id]))return blockedNext(q);
       if(state.index===TOTAL-1){state.readyToSubmit=true;save();review();}
-      else{state.index++;save();renderQuestion();document.getElementById('questionTitle').focus();window.scrollTo(0,0);}
+      else{state.index++;save();renderQuestion();}
     };
+    if(resetScroll)screenTop();
   }
   function blockedNext(q){
     if(q.type==='choice')document.querySelector('.choices').classList.add('missing-group');
@@ -164,6 +171,7 @@
     if(!state||state.done||state.index!==TOTAL-1||orderedQuestions().some(q=>!S.complete(q,state.answers[q.id])))return;
     app.innerHTML=`<section class="card exam-flow"><div class="eyebrow">Entrega final</div><h1>Finaliza tu prueba</h1><p><strong>${esc(state.name)}</strong> · ${esc(state.group)}</p><p>Entrega para consultar tu calificación y descargar el PDF.</p><button id="finish" class="primary">Entregar y ver resultado</button></section>`;
     document.getElementById('finish').onclick=()=>{if(state.done)return;state.done=true;state.finished=new Date().toISOString();save();results();window.scrollTo(0,0);};
+    screenTop();
   }
   function totals(){
     const topics=TOPICS.map(()=>({score:0,total:0}));let points=0;
