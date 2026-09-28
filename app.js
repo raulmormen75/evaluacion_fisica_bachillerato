@@ -5,7 +5,7 @@
   const KEY='ifr-physics-exam-v1', VERSION=4, TOTAL=NEW_BANK.length;
   if('scrollRestoration' in history)history.scrollRestoration='manual';
   let BANK=NEW_BANK,byId=new Map(NEW_BANK.map(q=>[q.id,q]));
-  let state=null,noticeTimer=null,persisted=true;
+  let state=null,noticeTimer=null,persisted=true,pdfURL=null;
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const format=value=>Number(value).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
   function selectBank(version){BANK=version===1?LEGACY_BANK:version===2?V2_BANK:version===3?V3_BANK:NEW_BANK;byId=new Map(BANK.map(q=>[q.id,q]));}
@@ -53,9 +53,11 @@
         }
       }
       const previous=saved.ids.slice(0,saved.index);
-      if(previous.some(id=>!S.complete(byId.get(id),saved.answers[id])))return;
-      if(saved.done&&(!saved.finished||saved.ids.some(id=>!S.complete(byId.get(id),saved.answers[id]))))return;
-      if(saved.readyToSubmit&&(saved.index!==TOTAL-1||saved.ids.some(id=>!S.complete(byId.get(id),saved.answers[id]))))return;
+      // Las respuestas ya entregadas conservan la regla de presencia original.
+      const submitted=id=>{const q=byId.get(id),value=saved.answers[id];return q.type==='choice'?Boolean(String(value??'').trim()):q.parts.every(part=>Boolean(String(value?.[part.id]??'').trim()));};
+      if(previous.some(id=>!submitted(id)))return;
+      if(saved.done&&(!saved.finished||saved.ids.some(id=>!submitted(id))))return;
+      if(saved.readyToSubmit&&(saved.index!==TOTAL-1||saved.ids.some(id=>!submitted(id))))return;
       state=saved;
     }catch{state=null;}
   }
@@ -80,7 +82,7 @@
   function partMarkup(q,part,value){
     const id='part-'+part.id;
     if(part.kind==='choice')return `<label class="field answer-field" for="${id}">${esc(part.label)}<select id="${id}" data-part="${part.id}"><option value="">Selecciona una opción</option>${optionsFor(q,part).map(option=>`<option value="${esc(option)}" ${value===option?'selected':''}>${esc(option)}</option>`).join('')}</select></label>`;
-    return `<label class="field answer-field" for="${id}">${esc(part.label)}<span class="input-with-unit"><input id="${id}" data-part="${part.id}" inputmode="decimal" autocomplete="off" spellcheck="false" maxlength="24" value="${esc(value||'')}" placeholder="Escribe un número" aria-describedby="unit-${part.id}"><span id="unit-${part.id}" class="unit">${esc(part.unit||'')}</span></span></label>`;
+    return `<div class="field answer-field"><label for="${id}">${esc(part.label)}</label><div class="input-with-unit"><input id="${id}" data-part="${part.id}" inputmode="decimal" autocomplete="off" spellcheck="false" maxlength="24" value="${esc(value||'')}" placeholder="Escribe un número" aria-describedby="unit-${part.id}"><button type="button" class="sign-toggle" data-sign="${part.id}" aria-label="Cambiar signo: ${esc(part.label)}" title="Cambiar signo">±</button><span id="unit-${part.id}" class="unit">${esc(part.unit||'')}</span></div></div>`;
   }
   function forceArrow(start,end,y,color){
     const left=end<start,tip=left?end+7:end-7;
@@ -121,12 +123,18 @@
   function renderQuestion(){
     if(state.done)return results();if(state.readyToSubmit)return review();
     const q=current(),answer=state.answers[q.id];
-    const fields=q.type==='choice'?`<div class="choices">${optionsFor(q).map((option,index)=>{const diagram=forceDiagram(q,option);return `<button type="button" class="choice ${diagram?'choice-with-visual':''} ${answer===option?'selected':''}" data-choice="${esc(option)}" aria-pressed="${answer===option}"><b>${String.fromCharCode(65+index)}</b><span class="choice-text">${esc(option)}</span>${diagram}</button>`;}).join('')}</div>`:`<p class="small muted">Escribe solo el número en cada casilla. Puedes usar punto o coma decimal.</p><div class="parts">${q.parts.map(part=>partMarkup(q,part,answer?.[part.id])).join('')}</div>`;
+    const fields=q.type==='choice'?`<div class="choices">${optionsFor(q).map((option,index)=>{const diagram=forceDiagram(q,option);return `<button type="button" class="choice ${diagram?'choice-with-visual':''} ${answer===option?'selected':''}" data-choice="${esc(option)}" aria-pressed="${answer===option}"><b>${String.fromCharCode(65+index)}</b><span class="choice-text">${esc(option)}</span>${diagram}</button>`;}).join('')}</div>`:`<p class="small muted">Escribe solo el número en cada casilla. Puedes usar punto o coma decimal. Pulsa ± para cambiar el signo.</p><div class="parts">${q.parts.map(part=>partMarkup(q,part,answer?.[part.id])).join('')}</div>`;
     app.innerHTML=`<div class="exam-flow ${q.visuals||q.image||q.formulas?.length?'visual-question':''}"><section class="card"><div class="qtop"><span>Ejercicio ${state.index+1} de ${TOTAL} · Tema ${q.topic}</span><span class="type">${esc(q.mode||((q.type==='choice')?'Concepto':'Resolución'))}</span></div><h2 id="questionTitle" tabindex="-1">${esc(TOPICS[q.topic-1])}</h2><p class="prompt">${esc(q.prompt)}</p>${questionSupport(q)}${fields}<div class="save-state" id="saved">${persisted?'':'Sin guardar. Mantén esta pestaña abierta.'}</div><div class="nav-buttons"><button id="next" class="primary" data-incomplete="${!S.complete(q,answer)}">${state.index===TOTAL-1?'Finalizar prueba':'Siguiente'}</button></div></section></div>`;
     document.querySelectorAll('[data-choice]').forEach(button=>button.onclick=()=>{state.answers[q.id]=button.dataset.choice;save();renderQuestion();});
     document.querySelectorAll('[data-part]').forEach(field=>{
       const update=()=>{state.answers[q.id]={...(state.answers[q.id]||{}),[field.dataset.part]:field.value};field.classList.remove('missing');save();document.getElementById('next').dataset.incomplete=String(!S.complete(q,state.answers[q.id]));};
       field.addEventListener(field.tagName==='SELECT'?'change':'input',update);
+    });
+    document.querySelectorAll('[data-sign]').forEach(button=>button.onclick=()=>{
+      const field=document.getElementById('part-'+button.dataset.sign),value=field.value.trim();
+      field.value=/^[−–-]/.test(value)?value.slice(1):'-'+value.replace(/^\+/,'');
+      field.dispatchEvent(new Event('input',{bubbles:true}));
+      field.focus({preventScroll:true});field.setSelectionRange(field.value.length,field.value.length);
     });
     document.getElementById('next').onclick=()=>{
       if(!S.complete(q,state.answers[q.id]))return blockedNext(q);
@@ -136,9 +144,9 @@
   }
   function blockedNext(q){
     if(q.type==='choice')document.querySelector('.choices').classList.add('missing-group');
-    else q.parts.forEach(part=>{const value=state.answers[q.id]?.[part.id];if(!String(value??'').trim())document.getElementById('part-'+part.id).classList.add('missing');});
+    else q.parts.forEach(part=>{const value=state.answers[q.id]?.[part.id];if(part.exact?S.number(value)===null:!String(value??'').trim())document.getElementById('part-'+part.id).classList.add('missing');});
     const button=document.getElementById('next');button.classList.remove('blocked');void button.offsetWidth;button.classList.add('blocked');
-    notice(q.type==='parts'?'Completa todas las partes antes de avanzar.':'Selecciona una respuesta antes de avanzar.');
+    notice(q.type==='parts'?'Completa todas las partes con números y opciones válidos.':'Selecciona una respuesta antes de avanzar.');
     setTimeout(()=>{button.classList.remove('blocked');document.querySelector('.choices')?.classList.remove('missing-group');document.querySelectorAll('.missing').forEach(field=>field.classList.remove('missing'));},1100);
   }
   function review(){
@@ -163,23 +171,32 @@
     document.getElementById('pdf').onclick=downloadPDF;
     document.getElementById('restart').onclick=restart;
     document.getElementById('restartTop').onclick=restart;
+    downloadPDF();
   }
   async function downloadPDF(){
     if(!state?.done||!window.jspdf?.jsPDF||!window.IFRPDF){notice('No se pudo preparar el PDF. Recarga e inténtalo de nuevo.');return;}
     const button=document.getElementById('pdf');if(button.disabled)return;
     button.disabled=true;button.textContent='Preparando PDF…';
     try{
-      const snapshot=JSON.parse(JSON.stringify(state));
+      const currentState=state,snapshot=JSON.parse(JSON.stringify(state)),questions=orderedQuestions(),result=totals();
       const assets=await IFRPDF.loadAssets();
-      const report=IFRPDF.build({jsPDF:jspdf.jsPDF,state:snapshot,questions:orderedQuestions(),topics:TOPICS,scoring:S,totals:totals(),assets});
+      if(state!==currentState||!button.isConnected)return;
+      const report=IFRPDF.build({jsPDF:jspdf.jsPDF,state:snapshot,questions,topics:TOPICS,scoring:S,totals:result,assets});
       const filename='Evaluacion_Fisica_I_'+snapshot.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'_').slice(0,60)+'.pdf';
-      await report.save(filename,{returnPromise:true});
-    }catch(error){console.error('PDF:',error);notice('No se pudo generar el PDF. Inténtalo de nuevo.');}
-    finally{button.disabled=false;button.textContent='Descargar resultado en PDF';}
+      const previousURL=pdfURL;pdfURL=URL.createObjectURL(report.output('blob'));
+      if(previousURL)setTimeout(()=>URL.revokeObjectURL(previousURL),60000);
+      const link=document.createElement('a');link.id='pdf';link.className='primary pdf-download';
+      link.href=pdfURL;link.download=filename;link.target='_blank';link.rel='noopener';link.textContent='Descargar resultado en PDF';
+      button.replaceWith(link);
+    }catch(error){
+      console.error('PDF:',error);
+      if(button.isConnected){button.disabled=false;button.textContent='Reintentar PDF';notice('No se pudo preparar el PDF. Pulsa «Reintentar PDF».');}
+    }
   }
   function restart(){
-    if(!state?.done||document.getElementById('pdf')?.disabled)return;
+    if(!state?.done)return;
     try{localStorage.removeItem(KEY);}catch{notice('No se pudo iniciar otro intento.');return;}
+    if(pdfURL){const previousURL=pdfURL;pdfURL=null;setTimeout(()=>URL.revokeObjectURL(previousURL),60000);}
     state=null;startScreen();window.scrollTo(0,0);
   }
   restore();startScreen();window.addEventListener('pagehide',()=>{if(state)save();});

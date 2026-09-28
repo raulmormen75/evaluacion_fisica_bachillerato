@@ -74,6 +74,11 @@ assert.deepEqual(Array.from(bank.find(q=>q.id==='v-tabla').table[1]),['Posición
 for(const id of ['v-pendiente','v-tabla','v-negativa','v-tiempo','v-aceleracion','v-frenado','v-encuentro'])assert.ok(bank.find(q=>q.id===id).formulas?.length,id);
 assert.equal(bank.find(q=>q.id==='f-tercera').answer,'La cubeta jala la cuerda hacia abajo.');
 const v3=context.window.V3_QUESTIONS;
+const singleNumeric=bank.find(q=>q.id==='v-pendiente'),singlePart=singleNumeric.parts[0].id;
+for(const value of ['-','texto','2.3.4'])assert.equal(scoring.complete(singleNumeric,{[singlePart]:value}),false,value);
+for(const value of ['-2','2,5','0'])assert.equal(scoring.complete(singleNumeric,{[singlePart]:value}),true,value);
+const legacyNumeric=v3.find(q=>q.id==='v-pendiente');
+assert.equal(scoring.complete(legacyNumeric,{[legacyNumeric.parts[0].id]:'texto'}),true);
 assert.equal(v3.length,bank.length);
 assert.deepEqual(Array.from(v3.find(q=>q.id==='v-encuentro').parts,part=>part.answer),[4,8]);
 assert.equal(v3.find(q=>q.id==='v-grafica').answer,'No cambia de posición.');

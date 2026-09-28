@@ -21,7 +21,7 @@
   }
   function complete(q,value){
     if(q.type==='choice')return nonempty(value);
-    if(q.type==='parts')return q.parts.every(part=>nonempty(value?.[part.id]));
+    if(q.type==='parts')return q.parts.every(part=>part.exact?number(value?.[part.id])!==null:nonempty(value?.[part.id]));
     return false;
   }
   function answerText(q,value){

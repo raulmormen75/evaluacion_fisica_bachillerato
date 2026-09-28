@@ -39,6 +39,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #69
 button:active:not(:disabled){transform:scale(.98)}
 button:disabled,button[aria-disabled="true"]{opacity:1;color:#7d8295;background:#edf0f5;border-color:#edf0f5;box-shadow:none;transform:none}
 .primary{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:none}
+.pdf-download{display:inline-flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--navy);border-radius:12px;padding:12px 16px;font-size:13px;line-height:1.4;font-weight:700;text-decoration:none;text-align:center;transition:background .16s ease}
 .primary:hover:not(:disabled){background:#2b2f8f;border-color:#2b2f8f;box-shadow:0 4px 12px #1c1e5a14;transform:none}
 .primary:active:not(:disabled){background:#14143a;transform:scale(.98)}
 .wide.primary{min-height:54px;margin-top:8px;font-size:15px}
@@ -202,6 +203,7 @@ main{margin:0;padding:0;max-width:none}.card,main>.card,main>.card:has(.results-
 .answer-field{margin:8px 0 14px}
 .input-with-unit{display:flex;align-items:stretch;gap:10px}
 .input-with-unit input{min-width:0;flex:1 1 auto;margin-top:8px;font-variant-numeric:tabular-nums}
+.sign-toggle{flex:0 0 44px;min-width:44px;margin-top:8px;padding:8px;font-size:22px;color:var(--navy);background:#edf0fa;border:1px solid #c8cede;touch-action:manipulation}
 .unit{display:flex;align-items:center;min-width:58px;max-width:110px;color:var(--navy);font-size:13px;font-weight:700;padding-top:8px}
 .answer-field select{max-width:100%}
 .missing{border-color:#bc3344!important;box-shadow:0 0 0 3px #bc33441c!important}
