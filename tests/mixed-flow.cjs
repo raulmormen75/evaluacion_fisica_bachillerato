@@ -66,10 +66,15 @@ const pdfText=value=>String(value).replace(/−/g,'-').replace(/×/g,' x ').repl
         assert.equal(await displayed.locator('strong').innerText(),row.label);
         assert.equal(await displayed.locator('.answer-columns > div').first().locator('span').last().innerText(),row.actual,item.id);
         assert.equal(await displayed.locator('.answer-fix').count(),row.correct?0:1,item.id);
+        assert.equal(await displayed.locator('.answer-columns > div').first().evaluate(el=>getComputedStyle(el).backgroundColor),row.correct?'rgb(234, 248, 239)':'rgb(255, 240, 242)',item.id+' panel color');
         if(!row.correct)assert.equal(await displayed.locator('.answer-fix span').last().innerText(),row.expected,item.id);
       }
     }
-    const screenshot=path.join(os.tmpdir(),'ifr-fisica-mixto-pantalla.png');await page.screenshot({path:screenshot});
+    const screenshot=path.join(os.tmpdir(),'ifr-fisica-mixto-pantalla.png');
+    await page.locator('article.result-partial').first().scrollIntoViewIfNeeded();await page.screenshot({path:screenshot});
+    await page.setViewportSize({width:390,height:844});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.locator('article.result-partial').first().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(os.tmpdir(),'ifr-fisica-paneles-movil.png')});
     const downloadPromise=page.waitForEvent('download');await page.locator('#pdf').click();
     const download=await downloadPromise,pdfPath=path.join(os.tmpdir(),'ifr-fisica-mixto-navegador.pdf');await download.saveAs(pdfPath);
     const extracted=JSON.parse(execFileSync('python',['-c','import fitz,json,sys; d=fitz.open(sys.argv[1]); print(json.dumps([p.get_text() for p in d]))',pdfPath],{encoding:'utf8'}));
@@ -84,10 +89,10 @@ const pdfText=value=>String(value).replace(/−/g,'-').replace(/×/g,' x ').repl
       const block=blocks[index];assert.equal(block[1],item.status,item.id);assert.equal(block[3],format(item.points),item.id);
       const body=pdfText(block[2]);
       for(const row of item.rows){
-        assert.ok(body.includes(pdfText('Tu respuesta: '+row.actual)),item.id+' PDF actual: '+row.actual);
-        if(!row.correct)assert.ok(body.includes(pdfText('Respuesta correcta: '+row.expected)),item.id+' PDF expected: '+row.expected);
+        assert.ok(body.includes(pdfText('Tu respuesta · '+(row.correct?'Correcta':'Incorrecta')+' '+row.actual)),item.id+' PDF actual: '+row.actual);
+        if(!row.correct)assert.ok(body.includes(pdfText('Respuesta correcta '+row.expected)),item.id+' PDF expected: '+row.expected);
       }
-      assert.equal((block[2].match(/Respuesta correcta:/g)||[]).length,item.rows.filter(row=>!row.correct).length,item.id);
+      assert.equal((block[2].match(/Respuesta correcta/g)||[]).length,item.rows.filter(row=>!row.correct).length,item.id);
     }
     assert.deepEqual(errors,[]);
     console.log('PASS: 20 respuestas mixtas; cada estado, punto, respuesta y corrección coinciden en pantalla y PDF; nota y temas calculados sin usar scoring.js.');

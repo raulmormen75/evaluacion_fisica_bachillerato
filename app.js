@@ -178,7 +178,7 @@
     orderedQuestions().forEach(q=>{const score=S.grade(q,state.answers[q.id]);points+=score;topics[q.topic-1].score+=score;topics[q.topic-1].total++;});
     return {points,topics,grade:points/TOTAL*10,percentage:points/TOTAL*100};
   }
-  function answerRow(label,actual,expected,correct){return `<div class="answer-item"><strong>${esc(label)}</strong><div class="answer-columns"><div><span class="answer-label">Tu respuesta</span><span>${esc(actual)}</span></div>${correct?'':`<div class="answer-fix"><span class="answer-label">Respuesta correcta</span><span>${esc(expected)}</span></div>`}</div></div>`;}
+  function answerRow(label,actual,expected,correct){return `<div class="answer-item result-${correct?'correct':'incorrect'}"><strong>${esc(label)}</strong><div class="answer-columns"><div><span class="answer-label">${correct?'Tu respuesta · Correcta':'Tu respuesta · Incorrecta'}</span><span>${esc(actual)}</span></div>${correct?'':`<div class="answer-fix"><span class="answer-label">Respuesta correcta</span><span>${esc(expected)}</span></div>`}</div></div>`;}
   function details(){return orderedQuestions().map((q,index)=>{
     const answer=state.answers[q.id],points=S.grade(q,answer),correct=points===1,status=correct?'correct':points>0?'partial':'incorrect';
     const rows=q.type==='choice'?answerRow('Respuesta',answer,q.answer,correct):q.parts.map(part=>{const actual=answer?.[part.id],suffix=part.unit?' '+part.unit:'';return answerRow(part.label,String(actual??'')+suffix,String(part.answer)+suffix,S.partCorrect(part,actual));}).join('');

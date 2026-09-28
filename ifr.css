@@ -134,6 +134,7 @@ main>.card:has(.results-score)>p{font-size:13px;line-height:1.7}
 .answer-label{font-size:10px;letter-spacing:.15px;font-weight:700;color:var(--result-color)}
 .answer-fix .answer-label{color:#4f5b91}
 .answer-item{padding:14px 0;border-top:1px solid var(--line)}
+.answer-item.result-correct,.answer-item.result-incorrect{background:transparent;color:var(--ink);border-color:var(--line)}
 .answer-item:first-child{padding-top:0;border-top:0}
 .answer-item>strong{display:block;font-size:13px;font-weight:600;color:var(--navy);margin-bottom:9px}
 .review .review-explanation{font-size:12px;line-height:1.75;color:var(--muted);padding:13px 0 0;margin:15px 0 0;border-top:1px solid var(--line)}
